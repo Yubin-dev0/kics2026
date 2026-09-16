@@ -78,16 +78,22 @@ def code_sha1():
 class Bench:
     def __init__(self, ser, writer):
         self.ser = ser
+        self.rd = proto.LineReader(ser)
         self.w = writer
         self.seq = 0
         self.stray = 0
         self.bad0 = None
+        self.bad_last = None
         self.t0 = time.perf_counter()
 
     def read_line(self, timeout):
-        self.ser.timeout = timeout
-        raw = self.ser.readline()
-        return raw if raw.endswith(b"\n") else None
+        return self.rd.readline(timeout)
+
+    def bad_delta(self):
+        """Board-side rejected lines since the first reply of the run."""
+        if self.bad0 is None or self.bad_last is None:
+            return None
+        return self.bad_last - self.bad0
 
     def exchange(self, phase, min_mm, local_v, local_w, edge_v, edge_w, flag):
         """Send one S line and wait for the C line with the same seq."""
@@ -98,7 +104,7 @@ class Bench:
         c, rtt_ms = None, None
         deadline = t_send + REPLY_TIMEOUT_S
         while time.perf_counter() < deadline:
-            raw = self.read_line(max(0.001, deadline - time.perf_counter()))
+            raw = self.read_line(max(0.0, deadline - time.perf_counter()))
             if raw is None:
                 continue
             try:
@@ -111,6 +117,7 @@ class Bench:
                 c = line
                 if self.bad0 is None:
                     self.bad0 = line.bad_lines
+                self.bad_last = line.bad_lines
                 break
             self.stray += 1  # late reply or an unsolicited WDOG line
         row = {"phase": phase, "seq": seq, "flag": flag, "min_mm": min_mm,
@@ -152,7 +159,8 @@ def phase_paced(b, res, n=1000):
         else:
             rtts.append(rtt)
         b.emit(row, ok)
-    res["paced"] = {"sent": n, "lost": lost, "wrong": bad, **stats(rtts, "rtt_ms")}
+    res["paced"] = {"sent": n, "lost": lost, "wrong": bad, "bad_lines_delta": b.bad_delta(),
+                    **stats(rtts, "rtt_ms")}
     return lost == 0 and bad == 0
 
 
@@ -170,7 +178,8 @@ def phase_sweep(b, res):
         lost += c is None
         wrong += (c is not None and not ok)
         b.emit(row, ok)
-    res["sweep"] = {"sent": len(cases), "lost": lost, "wrong": wrong}
+    res["sweep"] = {"sent": len(cases), "lost": lost, "wrong": wrong,
+                    "bad_lines_delta": b.bad_delta()}
     return lost == 0 and wrong == 0
 
 
@@ -201,7 +210,8 @@ def phase_switch(b, res, n=400, every=10):
         b.emit(row, ok)
         last = c
     n_sw_delta = last.n_sw - n0
-    res["switch"] = {"sent": n, "lost": lost, "wrong": wrong, "switches": len(sw),
+    res["switch"] = {"sent": n, "lost": lost, "wrong": wrong, "bad_lines_delta": b.bad_delta(),
+                     "switches": len(sw),
                      "n_sw_delta": n_sw_delta, **stats(sw, "switch_us")}
     return bool(lost == 0 and wrong == 0 and sw and n_sw_delta == len(sw)
                 and max(sw) < SWITCH_US_LIMIT)
@@ -217,7 +227,7 @@ def phase_wdog(b, res):
     got = []
     end = time.perf_counter() + 0.6
     while time.perf_counter() < end:
-        raw = b.read_line(max(0.001, end - time.perf_counter()))
+        raw = b.read_line(max(0.0, end - time.perf_counter()))
         if raw is None:
             continue
         try:
@@ -275,20 +285,26 @@ def main():
             "code_sha1": code_sha1(), "git": commit, "git_dirty": dirty, "note": args.note,
             "host_python": sys.version.split()[0], "host_platform": sys.platform}
 
-    with serial.Serial(args.port, args.baud, timeout=REPLY_TIMEOUT_S) as ser, \
+    res, verdict = {}, {}
+    aborted = None
+    with serial.Serial(args.port, args.baud, timeout=proto.PORT_TIMEOUT_S) as ser, \
             open(csv_path, "w", newline="") as f:
         time.sleep(0.2)
-        ser.reset_input_buffer()
+        rd = proto.LineReader(ser)
+        rd.clear()
         ser.write(proto.VERSION_QUERY)
         fw = None
         t_end = time.perf_counter() + 1.0
         while fw is None and time.perf_counter() < t_end:
-            raw = ser.readline()
-            try:
-                fw = proto.parse_v(raw) if raw.startswith(b"V,") else None
-            except ValueError:
-                fw = None
+            raw = rd.readline(max(0.0, t_end - time.perf_counter()))
+            if raw and raw.startswith(b"V,"):
+                try:
+                    fw = proto.parse_v(raw)
+                except ValueError:
+                    fw = None
         if fw is None:
+            f.close()
+            csv_path.unlink()
             sys.exit("no V reply: check port, baud, and that the board is flashed")
         meta["firmware"] = fw
         print(f"firmware: {fw}")
@@ -296,24 +312,28 @@ def main():
         w = csv.DictWriter(f, fieldnames=FIELDS)
         w.writeheader()
         b = Bench(ser, w)
-        res = {}
-        verdict = {}
-        for name, fn in (("paced", phase_paced), ("sweep", phase_sweep),
-                         ("switch", phase_switch), ("wdog", phase_wdog)):
-            print(f"phase {name} ...", flush=True)
-            verdict[name] = fn(b, res)
-            print(f"  {'PASS' if verdict[name] else 'FAIL'} {res[name]}", flush=True)
+        b.rd = rd
+        try:
+            for name, fn in (("paced", phase_paced), ("sweep", phase_sweep),
+                             ("switch", phase_switch), ("wdog", phase_wdog)):
+                print(f"phase {name} ...", flush=True)
+                verdict[name] = fn(b, res)
+                print(f"  {'PASS' if verdict[name] else 'FAIL'} {res[name]}", flush=True)
 
             # firmware-side bad line count must not move during the run
-        _, c, _ = b.exchange("final", 500, proto.V_MAX_MMS, 0, 0, 0, 0)
-        res["bad_lines_delta"] = None if c is None else c.bad_lines - b.bad0
+            _, c, _ = b.exchange("final", 500, proto.V_MAX_MMS, 0, 0, 0, 0)
+            res["bad_lines_delta"] = b.bad_delta() if c is not None else None
+            verdict["bad_lines"] = c is not None and b.bad_delta() == 0
+        except KeyboardInterrupt:
+            aborted = "KeyboardInterrupt"
+            print("\ninterrupted; writing meta with pass = false")
         res["stray_lines"] = b.stray
-        verdict["bad_lines"] = c is not None and c.bad_lines == b.bad0
 
     meta["finished"] = dt.datetime.now().astimezone().isoformat(timespec="seconds")
     meta["results"] = res
     meta["verdict"] = verdict
-    meta["pass"] = all(verdict.values())
+    meta["aborted"] = aborted
+    meta["pass"] = aborted is None and bool(verdict) and all(verdict.values())
     meta_path.write_text(json.dumps(meta, indent=2) + "\n")
     print(f"\n{args.stage} {'PASS' if meta['pass'] else 'FAIL'}  ->  {csv_path}, {meta_path.name}")
     print(f"register it in WSL: python3 analysis/append_run.py {args.stage} {args.run}")

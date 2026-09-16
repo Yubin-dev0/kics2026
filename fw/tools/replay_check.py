@@ -40,20 +40,19 @@ SLOPE = proto.V_MAX_MMS / (proto.D_SLOW_MM - proto.D_STOP_MM)  # 1.1 (mm/s) per 
 MODE_CODES = {"RUN": 0, "SLOW": 1, "STOP": 2}
 
 
-def exchange(ser, seq, min_mm, local_v, local_w):
+def exchange(ser, rd, seq, min_mm, local_v, local_w):
     ser.write(proto.build_s(seq, min_mm, local_v, local_w, 0, 0, 1))
     deadline = time.perf_counter() + 0.2
-    while time.perf_counter() < deadline:
-        raw = ser.readline()
-        if not raw.endswith(b"\n"):
-            continue
+    while True:
+        raw = rd.readline(max(0.0, deadline - time.perf_counter()))
+        if raw is None:
+            return None
         try:
             c = proto.parse_c(raw)
         except ValueError:
             continue
         if c.seq == seq and c.state != 3:
             return c
-    return None
 
 
 def decimals(cell):
@@ -74,9 +73,10 @@ def main():
 
     summary = {"files": {}, "total": 0, "lost": 0, "mismatches": 0, "turning_rows": 0,
                "worst_dv_mms": 0.0}
-    with serial.Serial(args.port, args.baud, timeout=0.05) as ser:
+    with serial.Serial(args.port, args.baud, timeout=proto.PORT_TIMEOUT_S) as ser:
         time.sleep(0.2)
-        ser.reset_input_buffer()
+        rd = proto.LineReader(ser)
+        rd.clear()
         seq = 10_000_000
         for path in args.csv:
             with open(path, newline="") as f:
@@ -106,7 +106,7 @@ def main():
                 cap = 0 if turning else proto.V_MAX_MMS
 
                 seq += 1
-                c = exchange(ser, seq, mm, cap, w_mrad)
+                c = exchange(ser, rd, seq, mm, cap, w_mrad)
                 fs["checked"] += 1
                 if c is None:
                     fs["lost"] += 1

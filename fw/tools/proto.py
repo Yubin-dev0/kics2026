@@ -5,6 +5,7 @@ Used by fw/tools/a2_bench.py, fw/tools/replay_check.py and, later, the N1 UART b
 from dataclasses import dataclass
 from functools import reduce
 import math
+import time
 
 PROTO_VERSION = 2
 
@@ -46,6 +47,39 @@ def rad_to_mrad(w: float) -> int:
 
 
 VERSION_QUERY = with_checksum("V")
+
+# Port read timeout, set once when the port is opened and never changed afterwards.
+# On Windows, pyserial re-applies the whole port configuration (SetCommState) whenever
+# .timeout is assigned; usbser.sys then sends SET_LINE_CODING and the ST-LINK bridge
+# re-initialises its UART, dropping bytes in flight. A2 run_1 lost 694 of 1000 lines this way.
+PORT_TIMEOUT_S = 0.005
+
+
+class LineReader:
+    """Collects bytes into complete lines. A line split across USB packets is kept, never
+    discarded, and the port configuration is never touched while reading."""
+
+    def __init__(self, ser):
+        self.ser = ser
+        self.buf = bytearray()
+
+    def readline(self, timeout_s):
+        deadline = time.perf_counter() + timeout_s
+        while True:
+            i = self.buf.find(b"\n")
+            if i >= 0:
+                line = bytes(self.buf[: i + 1])
+                del self.buf[: i + 1]
+                return line
+            if time.perf_counter() >= deadline:
+                return None
+            chunk = self.ser.read(self.ser.in_waiting or 1)  # waits at most PORT_TIMEOUT_S
+            if chunk:
+                self.buf.extend(chunk)
+
+    def clear(self):
+        self.ser.reset_input_buffer()
+        self.buf.clear()
 
 
 @dataclass
