@@ -5,13 +5,51 @@ from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
+import json, hashlib, subprocess, os, time
 
 D_COL, D_STOP, D_SLOW = 0.15, 0.20, 0.40
 V_MAX, W_MAX = 0.22, 1.0
 WP_TOL = 0.15
 RMIN, RMAX = 0.12, 3.5
-WAYPOINTS = [(1.5, 0.0), (1.5, 1.5), (-1.5, 1.5), (-1.5, -1.5), (1.0, -1.5)]
+WAYPOINTS = [(1.2, 0.0), (1.2, 1.2), (-1.2, 1.2), (-1.2, -1.2), (0.8, -1.2)]
+REPO = os.path.expanduser('~/kics2026')
+WORLD = os.path.expanduser(
+    '~/tb3_ws/install/turtlebot3_gazebo/share/'
+    'turtlebot3_gazebo/worlds/a1_course.world')
 
+
+def sha1_of(path):
+    try:
+        with open(path, 'rb') as f:
+            return hashlib.sha1(f.read()).hexdigest()[:12]
+    except OSError:
+        return 'missing'
+
+
+def dump_meta(run_id):
+    meta = {
+        'run_id': run_id,
+        'started': time.strftime('%Y-%m-%dT%H:%M:%S'),
+        'waypoints': WAYPOINTS,
+        'd_col': D_COL, 'd_stop': D_STOP, 'd_slow': D_SLOW,
+        'v_max': V_MAX, 'v_slow_floor': 0.10,
+        'sector_half_deg': 48, 'sector_count': 16,
+        'world_sha1': sha1_of(WORLD),
+        'code_sha1': sha1_of(os.path.abspath(__file__)),
+    }
+    try:
+        meta['git'] = subprocess.check_output(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            cwd=REPO, stderr=subprocess.DEVNULL).decode().strip()
+        dirty = subprocess.check_output(
+            ['git', 'status', '--porcelain'],
+            cwd=REPO, stderr=subprocess.DEVNULL).decode().strip()
+        meta['git_dirty'] = bool(dirty)
+    except Exception:
+        meta['git'] = 'unknown'
+        meta['git_dirty'] = True
+    with open(f'run_{run_id}_meta.json', 'w') as f:
+        json.dump(meta, f, indent=2)
 
 class A1Controller(Node):
     def __init__(self, run_id):
@@ -28,6 +66,9 @@ class A1Controller(Node):
         self.t0 = None
         self.done = False
 
+        if os.path.exists(f'run_{run_id}.csv'):
+            raise SystemExit(f'run_{run_id}.csv already exists. Pick another run_id.')
+        dump_meta(run_id)
         self.f = open(f'run_{run_id}.csv', 'w', newline='')
         self.w = csv.writer(self.f)
         self.w.writerow(['t', 'x', 'y', 'yaw', 'min_range', 'wp_i', 'mode', 'v', 'w'])
