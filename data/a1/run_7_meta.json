@@ -1,0 +1,37 @@
+{
+  "run_id": "7",
+  "started": "2026-09-16T12:30:57",
+  "waypoints": [
+    [
+      1.2,
+      0.0
+    ],
+    [
+      1.2,
+      1.2
+    ],
+    [
+      -1.2,
+      1.2
+    ],
+    [
+      -1.2,
+      -1.2
+    ],
+    [
+      0.8,
+      -1.2
+    ]
+  ],
+  "d_col": 0.15,
+  "d_stop": 0.2,
+  "d_slow": 0.4,
+  "v_max": 0.22,
+  "v_slow_floor": 0.1,
+  "sector_half_deg": 48,
+  "sector_count": 16,
+  "world_sha1": "27b02a9fde4e",
+  "code_sha1": "0f646e2205e4",
+  "git": "b6e3cdf",
+  "git_dirty": true
+}

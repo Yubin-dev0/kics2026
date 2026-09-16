@@ -42,7 +42,8 @@ def dump_meta(run_id):
             ['git', 'rev-parse', '--short', 'HEAD'],
             cwd=REPO, stderr=subprocess.DEVNULL).decode().strip()
         dirty = subprocess.check_output(
-            ['git', 'status', '--porcelain'],
+            ['git', 'status', '--porcelain', '--',
+             'sim', 'fw', 'capture', 'load', 'net'],
             cwd=REPO, stderr=subprocess.DEVNULL).decode().strip()
         meta['git_dirty'] = bool(dirty)
     except Exception:
