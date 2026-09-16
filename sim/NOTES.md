@@ -55,10 +55,25 @@ and edits to the world file will silently have no effect.
 |--------|--------|-------|
 | d_col  | 0.15 m | confirmed: range min 0.12 m + 3-sigma noise 0.03 m |
 | d_stop | 0.20 m | confirmed: d_col 0.15 + 0.033 lag distance, rounded up |
-| d_slow | 0.40 m | provisional: d_stop x 2, no physical basis yet |
-
+| d_slow | 0.40 m | confirmed: SLOW engages and the robot reaches d_stop without collision across 7 runs (6-12); min_range settles at 0.262-0.277 m, well clear of d_stop 0.20 |
 The LDS-01 sits 3.2 cm behind the chassis centre. All three values are
 sensor-referenced, and the A2 firmware uses the same reference.
+
+## Course validation (runs 10-12)
+Obstacle lateral clearance L = 0.42 m from the path. With a +/-48 deg
+sector and obstacle radius 0.15 m, R = L/sin(48) - r predicts 0.415 m,
+but the measured minimum is 0.262-0.277 m: the robot passes closer than
+the straight-line model during turns. The geometric model tracks the
+direction of change correctly (L 0.38 -> 0.42 moved min 0.200 -> 0.270,
+predicted +0.054, measured +0.070), so it is usable for planning but not
+for absolute values.
+
+At L = 0.38 the minimum ranged 0.1997-0.2224 across four runs, straddling
+d_stop 0.20, and STOP fired in one run out of four. At L = 0.42 the spread
+narrowed to 0.0144 m and STOP is 0 in all three runs.
+
+Pass criteria met: 3/3 complete in under 60 s (48.7-49.0 s), zero
+collisions, step counts within 1.3% (774-784), SLOW engaged in every run.
 
 ## Forward sector
 Originally +/-15 deg (indices 0-15 and 345-359). With a lateral
