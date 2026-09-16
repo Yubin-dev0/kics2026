@@ -7,10 +7,14 @@ local mode, and the reply is checked against:
   1. the float rule the sim controller uses: state must match; speed never faster and at
      most 2.1 mm/s slower (1 mm truncation * 1.1 (mm/s)/mm + 1 mm/s integer division);
   2. the logged mode column (RUN/SLOW/STOP), when present;
-  3. the logged v column, when present, with the same tolerance widened by the rounding of
-     the logged min_range (a value printed with 4 decimals may be 0.05 mm off).
+  3. the logged v column, when present. The sim controller commands
+     min(safety speed, heading speed): it drops v to 0 while turning in place at a waypoint.
+     So the logged v may be slower than the rule (counted as "override rows", not a failure)
+     but never faster than the board's speed beyond the tolerance, widened by the rounding
+     of the logged min_range (4 decimals = 0.05 mm).
 It also reports the logged w during STOP rows, which tells whether the sim controller
 kept turning while stopped (the firmware passes local_w through in every state).
+Runs without STOP rows (run_10 to run_12) cannot answer that; replay run_4 or run_7.
 
 Usage (Windows PowerShell, board on COM5):
   python fw\tools\replay_check.py --port COM5 --out-json <repo>\data\a2\replay_1.json `
@@ -66,7 +70,8 @@ def main():
     ap.add_argument("--out-json", default=None, help="write the summary here")
     args = ap.parse_args()
 
-    summary = {"files": {}, "total": 0, "lost": 0, "mismatches": 0, "worst_dv_mms": 0.0}
+    summary = {"files": {}, "total": 0, "lost": 0, "mismatches": 0, "override_rows": 0,
+               "worst_dv_mms": 0.0}
     with serial.Serial(args.port, args.baud, timeout=0.05) as ser:
         time.sleep(0.2)
         ser.reset_input_buffer()
@@ -81,6 +86,7 @@ def main():
             has_v = args.v_col in cols
             has_w = args.w_col in cols
             fs = {"rows": len(rows), "checked": 0, "lost": 0, "mismatches": 0,
+                  "override_rows": 0, "override_w_abs_min": None,
                   "stop_rows": 0, "stop_rows_with_w": 0}
             for i, row in enumerate(rows):
                 cell = row[args.range_col].strip()
@@ -111,8 +117,15 @@ def main():
                 if has_v and row[args.v_col].strip() != "":
                     margin = SLOPE * (10.0 ** -decimals(cell)) * 1000.0 / 2.0 + 1e-6
                     dl = float(row[args.v_col]) * 1000.0 - c.v_out
-                    if not (-margin < dl < V_TOL_MMS + margin):
-                        problems.append(f"v {c.v_out} vs logged {row[args.v_col]}")
+                    if dl >= V_TOL_MMS + margin:
+                        problems.append(f"logged v {row[args.v_col]} faster than board {c.v_out}")
+                    elif dl <= -margin:
+                        # controller slowed below the safety speed (turning in place)
+                        fs["override_rows"] += 1
+                        if has_w and row[args.w_col].strip() != "":
+                            wabs = abs(float(row[args.w_col]))
+                            cur = fs["override_w_abs_min"]
+                            fs["override_w_abs_min"] = wabs if cur is None else min(cur, wabs)
 
                 if c.state == 2:
                     fs["stop_rows"] += 1
@@ -128,15 +141,18 @@ def main():
             summary["total"] += fs["checked"]
             summary["lost"] += fs["lost"]
             summary["mismatches"] += fs["mismatches"]
+            summary["override_rows"] += fs["override_rows"]
             print(f"{Path(path).name}: {fs['checked']} rows checked, {fs['lost']} lost, "
-                  f"{fs['mismatches']} mismatches, STOP rows {fs['stop_rows']} "
+                  f"{fs['mismatches']} mismatches | override rows {fs['override_rows']} "
+                  f"(min |w| {fs['override_w_abs_min']}) | STOP rows {fs['stop_rows']} "
                   f"(logged w != 0 in {fs['stop_rows_with_w']})")
 
     summary["worst_dv_mms"] = round(summary["worst_dv_mms"], 3)
     summary["pass"] = summary["mismatches"] == 0 and summary["lost"] == 0
     print(f"\nreplay {'PASS' if summary['pass'] else 'FAIL'}: {summary['total']} steps, "
           f"{summary['lost']} lost, {summary['mismatches']} mismatches, "
-          f"worst |dv| = {summary['worst_dv_mms']} mm/s")
+          f"{summary['override_rows']} override rows, "
+          f"worst |dv| vs rule = {summary['worst_dv_mms']} mm/s")
     if args.out_json:
         out = Path(args.out_json)
         if out.exists():
