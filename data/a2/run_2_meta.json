@@ -1,0 +1,81 @@
+{
+  "run_id": "2",
+  "stage": "A2",
+  "target": "board",
+  "started": "2026-09-16T17:56:18+09:00",
+  "port": "COM3",
+  "baud": 921600,
+  "seed": 1,
+  "proto_version_host": 2,
+  "period_s": 0.05,
+  "thresholds_mm": {
+    "d_stop": 200,
+    "d_slow": 400
+  },
+  "speeds_mms": {
+    "v_max": 220,
+    "v_floor": 100
+  },
+  "watchdog_ms_expected": 150,
+  "switch_us_limit": 1000,
+  "code_sha1": "cef1a337bd00",
+  "git": "cd4a090",
+  "git_dirty": true,
+  "note": "",
+  "host_python": "3.13.4",
+  "host_platform": "win32",
+  "firmware": {
+    "proto_version": 2,
+    "build_id": "Sep 16 2026 17:36:20 dbg",
+    "sysclk_hz": 180000000
+  },
+  "finished": "2026-09-16T17:57:30+09:00",
+  "results": {
+    "paced": {
+      "sent": 1000,
+      "lost": 0,
+      "wrong": 0,
+      "bad_lines_delta": 114,
+      "rtt_ms_n": 1000,
+      "rtt_ms_median": 1.899,
+      "rtt_ms_p99": 2.75,
+      "rtt_ms_max": 2.936,
+      "rtt_ms_min": 1.047
+    },
+    "sweep": {
+      "sent": 609,
+      "lost": 0,
+      "wrong": 0,
+      "bad_lines_delta": 146
+    },
+    "switch": {
+      "sent": 400,
+      "lost": 0,
+      "wrong": 0,
+      "bad_lines_delta": 146,
+      "switches": 39,
+      "n_sw_delta": 39,
+      "switch_us_n": 39,
+      "switch_us_median": 34,
+      "switch_us_p99": 35,
+      "switch_us_max": 35,
+      "switch_us_min": 31
+    },
+    "wdog": {
+      "lines_after_silence": 1,
+      "wdog_lines": 1,
+      "gap_ms": 148.1
+    },
+    "bad_lines_delta": 146,
+    "stray_lines": 33
+  },
+  "verdict": {
+    "paced": true,
+    "sweep": true,
+    "switch": true,
+    "wdog": true,
+    "bad_lines": false
+  },
+  "aborted": null,
+  "pass": false
+}

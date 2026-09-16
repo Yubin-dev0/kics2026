@@ -1,0 +1,46 @@
+{
+  "files": {
+    "run_10.csv": {
+      "rows": 976,
+      "checked": 976,
+      "lost": 0,
+      "mismatches": 0,
+      "turning_rows": 114,
+      "stop_rows": 0,
+      "stop_rows_with_w": 0
+    },
+    "run_11.csv": {
+      "rows": 970,
+      "checked": 970,
+      "lost": 0,
+      "mismatches": 0,
+      "turning_rows": 114,
+      "stop_rows": 0,
+      "stop_rows_with_w": 0
+    },
+    "run_12.csv": {
+      "rows": 970,
+      "checked": 970,
+      "lost": 0,
+      "mismatches": 0,
+      "turning_rows": 113,
+      "stop_rows": 0,
+      "stop_rows_with_w": 0
+    },
+    "run_7.csv": {
+      "rows": 1032,
+      "checked": 1032,
+      "lost": 0,
+      "mismatches": 0,
+      "turning_rows": 114,
+      "stop_rows": 2,
+      "stop_rows_with_w": 0
+    }
+  },
+  "total": 3948,
+  "lost": 0,
+  "mismatches": 0,
+  "turning_rows": 455,
+  "worst_dv_mms": 1.79,
+  "pass": true
+}
