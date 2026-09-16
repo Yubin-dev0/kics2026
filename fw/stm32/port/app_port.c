@@ -92,10 +92,22 @@ static void feed(const uint8_t *p, uint16_t n, uint32_t t)
     }
 }
 
-void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t pos)
+/* The receive position is read from the DMA counter, not from the Size argument.
+ * With circular DMA the F4 HAL calls this for the TC event with Size = 256 and, when a burst
+ * ends exactly at the wrap, once more for the IDLE event with Size = 256 again. Treating that
+ * second call as "256 new bytes" re-fed the whole buffer: stale lines were processed a second
+ * time and fragments counted as bad lines (A2 run_2: 146 bad lines, every real line answered).
+ * Working from the counter makes the handler idempotent: a call with no new bytes does nothing.
+ * TC and IDLE run at the same NVIC priority, so this handler never preempts itself.
+ * Limit: more than RX_DMA_SIZE bytes between two calls would be missed; at 20 Hz with
+ * ~30 byte lines the buffer holds 8 lines, and every line ends in an IDLE event. */
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
 {
+    (void)size;
     if (huart != port_huart) return;
     uint32_t t = DWT->CYCCNT; /* reference point t0 for switch_us */
+    uint16_t pos = (uint16_t)(RX_DMA_SIZE - __HAL_DMA_GET_COUNTER(huart->hdmarx));
+    if (pos >= RX_DMA_SIZE) pos = 0; /* counter reads 0 only at the instant of reload */
     if (pos == rx_old_pos) return;
     if (pos > rx_old_pos) {
         feed(&rx_dma[rx_old_pos], (uint16_t)(pos - rx_old_pos), t);
@@ -103,7 +115,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t pos)
         feed(&rx_dma[rx_old_pos], (uint16_t)(RX_DMA_SIZE - rx_old_pos), t);
         feed(rx_dma, pos, t);
     }
-    rx_old_pos = (pos == RX_DMA_SIZE) ? 0 : pos;
+    rx_old_pos = pos;
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)

@@ -1,5 +1,6 @@
 # host build outputs
 host/test_core
+host/rx_sim
 host/fake_stm32
 # CubeIDE build outputs and per-user state
 stm32/n2_safety/Debug/
