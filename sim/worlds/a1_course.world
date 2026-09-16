@@ -1,0 +1,102 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="a1_course">
+
+    <include><uri>model://ground_plane</uri></include>
+    <include><uri>model://sun</uri></include>
+
+    <scene>
+      <shadows>false</shadows>
+    </scene>
+
+    <physics type="ode">
+      <real_time_update_rate>1000.0</real_time_update_rate>
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1</real_time_factor>
+    </physics>
+
+    <model name="walls">
+      <static>true</static>
+      <link name="link">
+        <collision name="w_n">
+          <pose>0 2.0 0.25 0 0 0</pose>
+          <geometry><box><size>4.0 0.1 0.5</size></box></geometry>
+        </collision>
+        <visual name="v_n">
+          <pose>0 2.0 0.25 0 0 0</pose>
+          <geometry><box><size>4.0 0.1 0.5</size></box></geometry>
+        </visual>
+        <collision name="w_s">
+          <pose>0 -2.0 0.25 0 0 0</pose>
+          <geometry><box><size>4.0 0.1 0.5</size></box></geometry>
+        </collision>
+        <visual name="v_s">
+          <pose>0 -2.0 0.25 0 0 0</pose>
+          <geometry><box><size>4.0 0.1 0.5</size></box></geometry>
+        </visual>
+        <collision name="w_e">
+          <pose>2.0 0 0.25 0 0 0</pose>
+          <geometry><box><size>0.1 4.0 0.5</size></box></geometry>
+        </collision>
+        <visual name="v_e">
+          <pose>2.0 0 0.25 0 0 0</pose>
+          <geometry><box><size>0.1 4.0 0.5</size></box></geometry>
+        </visual>
+        <collision name="w_w">
+          <pose>-2.0 0 0.25 0 0 0</pose>
+          <geometry><box><size>0.1 4.0 0.5</size></box></geometry>
+        </collision>
+        <visual name="v_w">
+          <pose>-2.0 0 0.25 0 0 0</pose>
+          <geometry><box><size>0.1 4.0 0.5</size></box></geometry>
+        </visual>
+      </link>
+    </model>
+
+    <model name="obs1">
+      <static>true</static>
+      <pose>0.75 -0.38 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry></visual>
+      </link>
+    </model>
+
+    <model name="obs2">
+      <static>true</static>
+      <pose>0.0 1.12 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry></visual>
+      </link>
+    </model>
+
+    <model name="obs3">
+      <static>true</static>
+      <pose>-1.12 0.7 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry></visual>
+      </link>
+    </model>
+
+    <model name="obs4">
+      <static>true</static>
+      <pose>-0.7 -1.12 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry></visual>
+      </link>
+    </model>
+
+    <model name="obs5">
+      <static>true</static>
+      <pose>1.12 0.75 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry></visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>
