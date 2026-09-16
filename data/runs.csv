@@ -1,0 +1,13 @@
+run_id,stage,date,node,course,clearance_m,sector_half_deg,v_slow_floor,git,result,duration_s,waypoints,collisions,slow_steps,stop_steps,min_range_m,status,note
+1,A1,2026-09-15,N1,4x4,initial,15,none,uncommitted,TIMEOUT,60.10,2/5,0,,698,,discarded,deadlock in front of obs2 at (0.62 1.43) for 35 s; no avoidance logic
+2,A1,2026-09-15,N1,4x4,unknown,15,none,uncommitted,GOAL,,,0,,,0.5690,partial,obstacle coords not recorded; min_range is the east wall not an obstacle
+3,A1,2026-09-15,N1,4x4,0.38,15,none,uncommitted,GOAL,,,0,0,,0.5580,overwritten,file overwritten by a second run using the same run_id; earlier run_3 gave min 0.5528
+4,A1,2026-09-15,N1,4x4,0.38,48,none,uncommitted,TIMEOUT,60.10,4/5,0,404,2,0.1998,valid,first run with the widened sector; SLOW engaged
+5,A1,2026-09-15,N1,4x4,0.38,48,0.10,uncommitted,TIMEOUT,60.10,4/5,0,280,0,0.2081,valid,SLOW speed floor added
+6,A1,2026-09-16,N1,3x3,0.38,48,0.10,b6e3cdf,GOAL,51.80,5/5,0,284,0,0.2002,valid,first completion; course shrunk to 3x3
+7,A1,2026-09-16,N1,3x3,0.38,48,0.10,b6e3cdf,GOAL,51.80,5/5,0,280,2,0.1997,valid,STOP fired; min sits on the d_stop boundary
+8,A1,2026-09-16,N1,3x3,0.38,48,0.10,b6e3cdf,GOAL,51.60,5/5,0,280,0,0.2224,valid,
+9,A1,2026-09-16,N1,3x3,0.38,48,0.10,b6e3cdf,GOAL,51.60,5/5,0,274,0,0.2152,valid,
+10,A1,2026-09-16,N1,3x3,0.42,48,0.10,02046f9,GOAL,49.00,5/5,0,200,0,0.2621,valid,clearance raised to clear the d_stop boundary
+11,A1,2026-09-16,N1,3x3,0.42,48,0.10,02046f9,GOAL,48.70,5/5,0,186,0,0.2765,valid,
+12,A1,2026-09-16,N1,3x3,0.42,48,0.10,02046f9,GOAL,48.70,5/5,0,196,0,0.2695,valid,A1 pass criteria met with runs 10-12
