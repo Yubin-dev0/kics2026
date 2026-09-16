@@ -23,4 +23,4 @@ and switching robot controllers accordingly. KICS 2026 Fall.
 - Filenames, paths, commit messages and docs are in English.
 
 ## Status
-A1 complete (runs 10-12). See `sim/NOTES.md`.
+A3 complete (runs 3-6, 2026-09-17). See `fw/NOTES.md`; A2 criteria in `fw/README.md`, A1 in `sim/NOTES.md`.

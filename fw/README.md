@@ -3,6 +3,7 @@
 | path | contents |
 |---|---|
 | `PROTOCOL.md` | N1 <-> N2 line protocol, safety rule, switching delay definition |
+| `NOTES.md` | N1 <-> N2 host link (A3): WSL2 via usbipd, pass criteria, validation, pre-run checklist |
 | `core/` | protocol, safety rule, mode switch, application glue. Plain C11, no HAL |
 | `host/` | host build of `core`: unit tests and `fake_stm32` (the core behind a tty) |
 | `stm32/port/` | HAL glue for NUCLEO-F446RE (UART DMA, DWT) |
