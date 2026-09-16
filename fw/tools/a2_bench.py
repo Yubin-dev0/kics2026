@@ -4,7 +4,8 @@ r"""A2 bench: exercises the N2 board (or fw/host/fake_stm32) over the line proto
 Phases
   version  V query -> build id, protocol version, SYSCLK
   paced    1000 S lines at 20 Hz in edge mode       -> loss, pass-through, host round trip
-  sweep    min_mm 0..600 and 65535 in local mode    -> safety rule matches, bit for bit
+  sweep    min_mm 0..600 and 65535 in local mode,   -> safety rule and local speed cap
+           plus local_v cap cases                     match, bit for bit
   switch   400 lines at 20 Hz, flag toggled every 10 -> n_sw bookkeeping, switch_us (= C)
   wdog     10 lines, then silence                   -> one unsolicited WDOG line after ~150 ms
 
@@ -38,7 +39,7 @@ REPLY_TIMEOUT_S = 0.2
 SWITCH_US_LIMIT = 1000   # provisional pass bar, see fw/PROTOCOL.md
 WDOG_WINDOW_MS = (140, 300)  # 150 ms on the board plus host scheduling noise
 
-FIELDS = ["phase", "seq", "flag", "min_mm", "local_w", "edge_v", "edge_w",
+FIELDS = ["phase", "seq", "flag", "min_mm", "local_v", "local_w", "edge_v", "edge_w",
           "t_send_s", "rtt_ms", "v_out", "w_out", "mode", "state",
           "switch_us", "n_sw", "bad_lines", "ok"]
 
@@ -88,12 +89,12 @@ class Bench:
         raw = self.ser.readline()
         return raw if raw.endswith(b"\n") else None
 
-    def exchange(self, phase, min_mm, local_w, edge_v, edge_w, flag):
+    def exchange(self, phase, min_mm, local_v, local_w, edge_v, edge_w, flag):
         """Send one S line and wait for the C line with the same seq."""
         self.seq += 1
         seq = self.seq
         t_send = time.perf_counter()
-        self.ser.write(proto.build_s(seq, min_mm, local_w, edge_v, edge_w, flag))
+        self.ser.write(proto.build_s(seq, min_mm, local_v, local_w, edge_v, edge_w, flag))
         c, rtt_ms = None, None
         deadline = t_send + REPLY_TIMEOUT_S
         while time.perf_counter() < deadline:
@@ -113,7 +114,7 @@ class Bench:
                 break
             self.stray += 1  # late reply or an unsolicited WDOG line
         row = {"phase": phase, "seq": seq, "flag": flag, "min_mm": min_mm,
-               "local_w": local_w, "edge_v": edge_v, "edge_w": edge_w,
+               "local_v": local_v, "local_w": local_w, "edge_v": edge_v, "edge_w": edge_w,
                "t_send_s": f"{t_send - self.t0:.6f}",
                "rtt_ms": "" if rtt_ms is None else f"{rtt_ms:.3f}"}
         if c is not None:
@@ -142,7 +143,7 @@ def phase_paced(b, res, n=1000):
     for _ in paced(n):
         mm = random.randint(150, 800)
         ew = random.randint(-1820, 1820)
-        row, c, rtt = b.exchange("paced", mm, 0, 150, ew, 0)
+        row, c, rtt = b.exchange("paced", mm, proto.V_MAX_MMS, 0, 150, ew, 0)
         ok = c is not None and c.mode == 0 and c.v_out == 150 and c.w_out == ew
         if c is None:
             lost += 1
@@ -156,24 +157,26 @@ def phase_paced(b, res, n=1000):
 
 
 def phase_sweep(b, res):
-    values = list(range(0, 601)) + [65535]
+    # (min_mm, local_v): the full rule range with no cap, then cap cases
+    cases = [(mm, proto.V_MAX_MMS) for mm in list(range(0, 601)) + [65535]]
+    cases += [(500, 0), (500, 150), (300, 150), (300, 80), (150, 220), (500, -50), (500, 400)]
     lost, wrong = 0, 0
-    for mm in values:
+    for mm, lv in cases:
         lw = random.randint(-1820, 1820)
-        row, c, _ = b.exchange("sweep", mm, lw, 999, 999, 1)
-        exp_state, exp_v = proto.expected_safety(mm)
+        row, c, _ = b.exchange("sweep", mm, lv, lw, 999, 999, 1)
+        exp_state, exp_v = proto.expected_local(mm, lv)
         ok = (c is not None and c.mode == 1 and c.state == exp_state
               and c.v_out == exp_v and c.w_out == lw)
         lost += c is None
         wrong += (c is not None and not ok)
         b.emit(row, ok)
-    res["sweep"] = {"sent": len(values), "lost": lost, "wrong": wrong}
+    res["sweep"] = {"sent": len(cases), "lost": lost, "wrong": wrong}
     return lost == 0 and wrong == 0
 
 
 def phase_switch(b, res, n=400, every=10):
     # settle in edge mode and take the starting counters
-    row, c, _ = b.exchange("switch", 500, 0, 150, 0, 0)
+    row, c, _ = b.exchange("switch", 500, proto.V_MAX_MMS, 0, 150, 0, 0)
     b.emit(row, c is not None)
     if c is None:
         res["switch"] = {"error": "no reply to settle line"}
@@ -184,7 +187,7 @@ def phase_switch(b, res, n=400, every=10):
     for i in paced(n):
         if i and i % every == 0:
             flag ^= 1
-        row, c, _ = b.exchange("switch", 500, 0, 150, 0, flag)
+        row, c, _ = b.exchange("switch", 500, proto.V_MAX_MMS, 0, 150, 0, flag)
         if c is None:
             lost += 1
             b.emit(row, False)
@@ -207,7 +210,7 @@ def phase_switch(b, res, n=400, every=10):
 def phase_wdog(b, res):
     last_rx = None
     for _ in paced(10):
-        row, c, _ = b.exchange("wdog", 500, 0, 150, 0, 0)
+        row, c, _ = b.exchange("wdog", 500, proto.V_MAX_MMS, 0, 150, 0, 0)
         b.emit(row, c is not None)
         if c is not None:
             last_rx = time.perf_counter()
@@ -302,7 +305,7 @@ def main():
             print(f"  {'PASS' if verdict[name] else 'FAIL'} {res[name]}", flush=True)
 
             # firmware-side bad line count must not move during the run
-        _, c, _ = b.exchange("final", 500, 0, 0, 0, 0)
+        _, c, _ = b.exchange("final", 500, proto.V_MAX_MMS, 0, 0, 0, 0)
         res["bad_lines_delta"] = None if c is None else c.bad_lines - b.bad0
         res["stray_lines"] = b.stray
         verdict["bad_lines"] = c is not None and c.bad_lines == b.bad0

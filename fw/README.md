@@ -39,10 +39,12 @@ Fake runs go to `/tmp`, not `data/`, and are never registered in `data/runs.csv`
 ## A2 pass criteria
 
 A run passes when every phase of `a2_bench.py` passes and `replay_check.py` reports zero
-mismatches on run_10 to run_12 (state, speed, and the logged mode and v columns):
+mismatches on run_10 to run_12 (state against the rule and the logged mode, v against the
+rule and the logged v, w against the logged w):
 
 - paced: 1000 lines at 20 Hz, 0 lost, edge command passed through unchanged
-- sweep: min_mm 0 to 600 and 65535, board rule equals the reference bit for bit
+- sweep: min_mm 0 to 600 and 65535 plus 7 local_v cap cases (609 lines), board output equals
+  the reference bit for bit
 - switch: 39 switches, `n_sw` advances by exactly 39, every `switch_us` below 1000
 - wdog: exactly one WDOG line, 140 to 300 ms after the last reply (host-side)
 - `bad_lines` does not move during the run

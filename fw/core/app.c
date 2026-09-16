@@ -48,7 +48,9 @@ size_t app_on_line(app_t *a, const char *line, size_t len, uint32_t t_rx_cyc,
     c.mode = a->m.mode;
     c.state = (uint8_t)st; /* reported in both modes, applied only in local mode */
     if (a->m.mode == MODE_LOCAL) {
-        c.v_out = v_safe;
+        /* same as the A1 controller: v = min(safety speed, heading speed); never reverse */
+        int16_t cap = s.local_v < 0 ? 0 : s.local_v;
+        c.v_out = v_safe < cap ? v_safe : cap;
         c.w_out = s.local_w;
     } else {
         c.v_out = s.edge_v;

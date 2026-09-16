@@ -18,10 +18,10 @@ static int fails = 0;
 static uint32_t fake_cyc = 0;
 static uint32_t cyc_now(void) { return fake_cyc; }
 
-static size_t mk_s(char *buf, size_t cap, unsigned long seq, unsigned mm, int lw, int ev,
-                   int ew, unsigned flag)
+static size_t mk_s(char *buf, size_t cap, unsigned long seq, unsigned mm, int lv, int lw,
+                   int ev, int ew, unsigned flag)
 {
-    int n = snprintf(buf, cap, "S,%lu,%u,%d,%d,%d,%u", seq, mm, lw, ev, ew, flag);
+    int n = snprintf(buf, cap, "S,%lu,%u,%d,%d,%d,%d,%u", seq, mm, lv, lw, ev, ew, flag);
     n += snprintf(buf + n, cap - (size_t)n, "*%02X", proto_checksum(buf, (size_t)n));
     return (size_t)n;
 }
@@ -35,25 +35,27 @@ static void test_parse(void)
 {
     char b[128];
     s_line_t s;
-    size_t n = mk_s(b, sizeof b, 4294967295UL, 65535, -1820, 220, 1820, 1);
+    size_t n = mk_s(b, sizeof b, 4294967295UL, 65535, -7, -1820, 220, 1820, 1);
     CHECK(proto_parse_s(b, n, &s) == PARSE_OK);
-    CHECK(s.seq == 4294967295UL && s.min_mm == 65535 && s.local_w == -1820);
+    CHECK(s.seq == 4294967295UL && s.min_mm == 65535 && s.local_v == -7 && s.local_w == -1820);
     CHECK(s.edge_v == 220 && s.edge_w == 1820 && s.flag == 1);
 
-    n = mk_s(b, sizeof b, 1, 300, 0, 0, 0, 0);
+    n = mk_s(b, sizeof b, 1, 300, 220, 0, 0, 0, 0);
     b[n - 1] = (b[n - 1] == '0') ? '1' : '0';
     CHECK(proto_parse_s(b, n, &s) == PARSE_ERR_CHECKSUM);
 
-    n = mk_s(b, sizeof b, 1, 65536, 0, 0, 0, 0);
+    n = mk_s(b, sizeof b, 1, 65536, 220, 0, 0, 0, 0);
     CHECK(proto_parse_s(b, n, &s) == PARSE_ERR_RANGE);
-    n = mk_s(b, sizeof b, 1, 300, 0, 0, 0, 2);
+    n = mk_s(b, sizeof b, 1, 300, 220, 0, 0, 0, 2);
     CHECK(proto_parse_s(b, n, &s) == PARSE_ERR_RANGE);
-    n = mk_s(b, sizeof b, 1, 300, 40000, 0, 0, 0);
+    n = mk_s(b, sizeof b, 1, 300, 220, 40000, 0, 0, 0);
+    CHECK(proto_parse_s(b, n, &s) == PARSE_ERR_RANGE);
+    n = mk_s(b, sizeof b, 1, 300, 40000, 0, 0, 0, 0);
     CHECK(proto_parse_s(b, n, &s) == PARSE_ERR_RANGE);
 
-    const char *bad[] = {"S,1,300,0,0,0*00",   "S,1,300,0,0,0,0,0*00", "S,,300,0,0,0,0*00",
-                         "X,1,300,0,0,0,0*00", "S,1,300,0,0,0,0",      "S,1,3a0,0,0,0,0*00",
-                         "S,1,300,0,0,0,-*00", "S,1,300,0,0,0,0*0"};
+    const char *bad[] = {"S,1,300,0,0,0,0*00",   "S,1,300,0,0,0,0,0,0*00", "S,,300,0,0,0,0,0*00",
+                         "X,1,300,0,0,0,0,0*00", "S,1,300,0,0,0,0,0",      "S,1,3a0,0,0,0,0,0*00",
+                         "S,1,300,0,0,0,0,-*00", "S,1,300,0,0,0,0,0*0"};
     for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++) {
         strcpy(b, bad[i]);
         char *star = strchr(b, '*');
@@ -117,23 +119,38 @@ static void test_app(void)
     size_t n;
 
     n = app_on_line(&a, "V*56", 4, 0, 0, out, sizeof out);
-    CHECK(n > 0 && strncmp(out, "V,1,test,180000000*", 19) == 0);
+    CHECK(n > 0 && strncmp(out, "V,2,test,180000000*", strlen("V,2,test,180000000*")) == 0);
 
     /* edge mode passes the edge command through; state still reported */
-    n = mk_s(in, sizeof in, 1, 150, 55, 200, -300, 0);
+    n = mk_s(in, sizeof in, 1, 150, 220, 55, 200, -300, 0);
     n = app_on_line(&a, in, n, 0, 0, out, sizeof out);
-    CHECK(n > 0 && strncmp(out, "C,1,200,-300,0,2,0,0,0*", 23) == 0);
+    CHECK(n > 0 && strncmp(out, "C,1,200,-300,0,2,0,0,0*", strlen("C,1,200,-300,0,2,0,0,0*")) == 0);
 
     /* switch to local: switch_us from cycle counts, safety v, local_w */
     fake_cyc = 180 * 37;
-    n = mk_s(in, sizeof in, 2, 300, 55, 200, -300, 1);
+    n = mk_s(in, sizeof in, 2, 300, 220, 55, 200, -300, 1);
     n = app_on_line(&a, in, n, 0, 50, out, sizeof out);
-    CHECK(n > 0 && strncmp(out, "C,2,110,55,1,1,37,1,0*", 22) == 0);
+    CHECK(n > 0 && strncmp(out, "C,2,110,55,1,1,37,1,0*", strlen("C,2,110,55,1,1,37,1,0*")) == 0);
 
     /* same level again: no switch */
-    n = mk_s(in, sizeof in, 3, 300, 55, 200, -300, 1);
+    n = mk_s(in, sizeof in, 3, 300, 220, 55, 200, -300, 1);
     n = app_on_line(&a, in, n, 0, 100, out, sizeof out);
-    CHECK(n > 0 && strncmp(out, "C,3,110,55,1,1,0,1,0*", 21) == 0);
+    CHECK(n > 0 && strncmp(out, "C,3,110,55,1,1,0,1,0*", strlen("C,3,110,55,1,1,0,1,0*")) == 0);
+
+    /* local speed cap: turning in place (0), slower than the rule (80), faster (300),
+     * negative (treated as 0); the reported state is still the safety state */
+    n = mk_s(in, sizeof in, 3, 500, 0, 900, 200, -300, 1);
+    n = app_on_line(&a, in, n, 0, 100, out, sizeof out);
+    CHECK(n > 0 && strncmp(out, "C,3,0,900,1,0,0,1,0*", strlen("C,3,0,900,1,0,0,1,0*")) == 0);
+    n = mk_s(in, sizeof in, 3, 300, 80, 0, 200, -300, 1);
+    n = app_on_line(&a, in, n, 0, 100, out, sizeof out);
+    CHECK(n > 0 && strncmp(out, "C,3,80,0,1,1,0,1,0*", strlen("C,3,80,0,1,1,0,1,0*")) == 0);
+    n = mk_s(in, sizeof in, 3, 300, 300, 0, 200, -300, 1);
+    n = app_on_line(&a, in, n, 0, 100, out, sizeof out);
+    CHECK(n > 0 && strncmp(out, "C,3,110,0,1,1,0,1,0*", strlen("C,3,110,0,1,1,0,1,0*")) == 0);
+    n = mk_s(in, sizeof in, 3, 500, -50, 0, 200, -300, 1);
+    n = app_on_line(&a, in, n, 0, 100, out, sizeof out);
+    CHECK(n > 0 && strncmp(out, "C,3,0,0,1,0,0,1,0*", strlen("C,3,0,0,1,0,0,1,0*")) == 0);
 
     /* bad line counted, no reply */
     n = app_on_line(&a, "S,4,300*00", 10, 0, 120, out, sizeof out);
@@ -142,13 +159,13 @@ static void test_app(void)
     /* watchdog: fires once after 150 ms of silence */
     CHECK(app_poll(&a, 250, out, sizeof out) == 0);
     n = app_poll(&a, 251, out, sizeof out);
-    CHECK(n > 0 && strncmp(out, "C,3,0,0,1,3,0,1,1*", 18) == 0);
+    CHECK(n > 0 && strncmp(out, "C,3,0,0,1,3,0,1,1*", strlen("C,3,0,0,1,3,0,1,1*")) == 0);
     CHECK(app_poll(&a, 400, out, sizeof out) == 0);
 
     /* next valid line clears the watchdog */
-    n = mk_s(in, sizeof in, 5, 500, 0, 0, 0, 1);
+    n = mk_s(in, sizeof in, 5, 500, 220, 0, 0, 0, 1);
     n = app_on_line(&a, in, n, 0, 500, out, sizeof out);
-    CHECK(n > 0 && strncmp(out, "C,5,220,0,1,0,0,1,1*", 20) == 0);
+    CHECK(n > 0 && strncmp(out, "C,5,220,0,1,0,0,1,1*", strlen("C,5,220,0,1,0,0,1,1*")) == 0);
     CHECK(app_poll(&a, 700, out, sizeof out) > 0);
 }
 

@@ -58,32 +58,33 @@ parse_err_t proto_parse_s(const char *line, size_t len, s_line_t *out)
     if (h1 < 0 || h2 < 0) return PARSE_ERR_FORMAT;
     if (proto_checksum(line, star) != (uint8_t)((h1 << 4) | h2)) return PARSE_ERR_CHECKSUM;
 
-    /* split the 6 fields after "S," */
-    int64_t f[6];
+    /* split the 7 fields after "S," */
+    int64_t f[7];
     const char *p = line + 2;
     const char *end = line + star;
-    for (int k = 0; k < 6; k++) {
+    for (int k = 0; k < 7; k++) {
         const char *q = p;
         while (q < end && *q != ',') q++;
-        if (k < 5 && q == end) return PARSE_ERR_FORMAT;
-        if (k == 5 && q != end) return PARSE_ERR_FORMAT;
+        if (k < 6 && q == end) return PARSE_ERR_FORMAT;
+        if (k == 6 && q != end) return PARSE_ERR_FORMAT;
         if (!parse_int(p, q, &f[k])) return PARSE_ERR_FORMAT;
         p = q + 1;
     }
 
     if (f[0] < 0 || f[0] > 0xFFFFFFFFLL) return PARSE_ERR_RANGE;
     if (f[1] < 0 || f[1] > 65535) return PARSE_ERR_RANGE;
-    for (int k = 2; k <= 4; k++) {
+    for (int k = 2; k <= 5; k++) {
         if (f[k] < -32768 || f[k] > 32767) return PARSE_ERR_RANGE;
     }
-    if (f[5] != 0 && f[5] != 1) return PARSE_ERR_RANGE;
+    if (f[6] != 0 && f[6] != 1) return PARSE_ERR_RANGE;
 
     out->seq = (uint32_t)f[0];
     out->min_mm = (uint16_t)f[1];
-    out->local_w = (int16_t)f[2];
-    out->edge_v = (int16_t)f[3];
-    out->edge_w = (int16_t)f[4];
-    out->flag = (uint8_t)f[5];
+    out->local_v = (int16_t)f[2];
+    out->local_w = (int16_t)f[3];
+    out->edge_v = (int16_t)f[4];
+    out->edge_w = (int16_t)f[5];
+    out->flag = (uint8_t)f[6];
     return PARSE_OK;
 }
 

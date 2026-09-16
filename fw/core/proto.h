@@ -5,12 +5,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define PROTO_VERSION 1
+#define PROTO_VERSION 2
 #define PROTO_LINE_MAX 96 /* longest legal line incl. checksum, without '\n' */
 
 typedef struct {
     uint32_t seq;
     uint16_t min_mm;  /* 0 = all rays NaN (fail-safe STOP), 65535 = no return (far) */
+    int16_t local_v;  /* mm/s, speed cap from the N1 waypoint follower (0 while turning in place) */
     int16_t local_w;  /* mrad/s, from the N1 waypoint follower */
     int16_t edge_v;   /* mm/s */
     int16_t edge_w;   /* mrad/s */

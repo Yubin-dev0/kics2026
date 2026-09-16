@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from functools import reduce
 import math
 
-PROTO_VERSION = 1
+PROTO_VERSION = 2
 
 STATE_NAMES = {0: "RUN", 1: "SLOW", 2: "STOP", 3: "WDOG"}
 
@@ -34,8 +34,15 @@ def range_to_mm(r_m: float) -> int:
     return max(0, int(math.floor(r_m * 1000.0)))
 
 
-def build_s(seq: int, min_mm: int, local_w: int, edge_v: int, edge_w: int, flag: int) -> bytes:
-    return with_checksum(f"S,{seq},{min_mm},{local_w},{edge_v},{edge_w},{flag}")
+def build_s(seq: int, min_mm: int, local_v: int, local_w: int, edge_v: int, edge_w: int,
+            flag: int) -> bytes:
+    """local_v is the waypoint follower's speed cap in mm/s (V_MAX, or 0 while turning in
+    place); the board outputs min(safety speed, local_v) in local mode."""
+    return with_checksum(f"S,{seq},{min_mm},{local_v},{local_w},{edge_v},{edge_w},{flag}")
+
+
+def rad_to_mrad(w: float) -> int:
+    return max(-32768, min(32767, int(round(w * 1000.0))))
 
 
 VERSION_QUERY = with_checksum("V")
@@ -75,6 +82,12 @@ def parse_v(raw: bytes) -> dict:
     if f[0] != "V" or len(f) != 4:
         raise ValueError(f"not a V line: {raw!r}")
     return {"proto_version": int(f[1]), "build_id": f[2], "sysclk_hz": int(f[3])}
+
+
+def expected_local(min_mm: int, local_v: int):
+    """Board output in local mode: (safety state, min(safety speed, max(local_v, 0)))."""
+    state, v = expected_safety(min_mm)
+    return state, min(v, max(local_v, 0))
 
 
 def expected_safety(min_mm: int):

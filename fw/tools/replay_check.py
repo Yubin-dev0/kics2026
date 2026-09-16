@@ -1,24 +1,26 @@
 #!/usr/bin/env python3
-r"""Replays A1 run logs through the firmware safety rule and compares with the sim controller.
+r"""Replays A1 run logs through the board and compares with what the sim controller did.
 
-For every row of data/a1/run_N.csv (columns t,x,y,yaw,min_range,wp_i,mode,v,w) the logged
-min_range is converted to the wire value (truncated mm), sent to the board or the fake in
-local mode, and the reply is checked against:
-  1. the float rule the sim controller uses: state must match; speed never faster and at
-     most 2.1 mm/s slower (1 mm truncation * 1.1 (mm/s)/mm + 1 mm/s integer division);
-  2. the logged mode column (RUN/SLOW/STOP), when present;
-  3. the logged v column, when present. The sim controller commands
-     min(safety speed, heading speed): it drops v to 0 while turning in place at a waypoint.
-     So the logged v may be slower than the rule (counted as "override rows", not a failure)
-     but never faster than the board's speed beyond the tolerance, widened by the rounding
-     of the logged min_range (4 decimals = 0.05 mm).
-It also reports the logged w during STOP rows, which tells whether the sim controller
-kept turning while stopped (the firmware passes local_w through in every state).
-Runs without STOP rows (run_10 to run_12) cannot answer that; replay run_4 or run_7.
+The A1 controller (sim/a1_controller.py) commands
+    v = safety speed from min_range (RUN / SLOW / STOP), then v = 0 if |heading error| > 0.4
+    w = heading controller output, in every state (it keeps turning while stopped).
+The board reproduces this in local mode as v = min(safety speed, local_v), w = local_w, with
+N1 sending local_v = 0 while turning in place. Each row of data/a1/run_N.csv
+(t,x,y,yaw,min_range,wp_i,mode,v,w) is replayed as such an S line:
+    min_mm  = floor(min_range * 1000)
+    local_v = 0 on rows where the log shows v == 0 outside STOP (turning in place), else V_MAX
+    local_w = logged w in mrad/s
+and the reply must satisfy
+  1. state equals the float rule and the logged mode;
+  2. v_out is never faster than min(float rule, cap) and at most 2.1 mm/s slower
+     (1 mm range truncation * 1.1 (mm/s)/mm + 1 mm/s integer division);
+  3. v_out matches the logged v within the same tolerance, widened by the rounding of the
+     logged min_range (4 decimals = 0.05 mm);
+  4. w_out equals the logged w in mrad/s.
 
-Usage (Windows PowerShell, board on COM5):
-  python fw\tools\replay_check.py --port COM5 --out-json <repo>\data\a2\replay_1.json `
-      <repo>\data\a1\run_10.csv <repo>\data\a1\run_11.csv <repo>\data\a1\run_12.csv
+Usage (WSL with the fake board, or Windows with the board on COM5):
+  python3 fw/tools/replay_check.py --port /tmp/vhost data/a1/run_10.csv data/a1/run_11.csv data/a1/run_12.csv
+  python fw\tools\replay_check.py --port COM5 --out-json data\a2\replay_1.json data\a1\run_10.csv ...
 """
 import argparse
 import csv
@@ -38,8 +40,8 @@ SLOPE = proto.V_MAX_MMS / (proto.D_SLOW_MM - proto.D_STOP_MM)  # 1.1 (mm/s) per 
 MODE_CODES = {"RUN": 0, "SLOW": 1, "STOP": 2}
 
 
-def exchange(ser, seq, min_mm):
-    ser.write(proto.build_s(seq, min_mm, 0, 0, 0, 1))
+def exchange(ser, seq, min_mm, local_v, local_w):
+    ser.write(proto.build_s(seq, min_mm, local_v, local_w, 0, 0, 1))
     deadline = time.perf_counter() + 0.2
     while time.perf_counter() < deadline:
         raw = ser.readline()
@@ -70,7 +72,7 @@ def main():
     ap.add_argument("--out-json", default=None, help="write the summary here")
     args = ap.parse_args()
 
-    summary = {"files": {}, "total": 0, "lost": 0, "mismatches": 0, "override_rows": 0,
+    summary = {"files": {}, "total": 0, "lost": 0, "mismatches": 0, "turning_rows": 0,
                "worst_dv_mms": 0.0}
     with serial.Serial(args.port, args.baud, timeout=0.05) as ser:
         time.sleep(0.2)
@@ -86,51 +88,56 @@ def main():
             has_v = args.v_col in cols
             has_w = args.w_col in cols
             fs = {"rows": len(rows), "checked": 0, "lost": 0, "mismatches": 0,
-                  "override_rows": 0, "override_w_abs_min": None,
-                  "stop_rows": 0, "stop_rows_with_w": 0}
+                  "turning_rows": 0, "stop_rows": 0, "stop_rows_with_w": 0}
             for i, row in enumerate(rows):
                 cell = row[args.range_col].strip()
                 if cell == "":
                     continue
                 r = float(cell)
                 mm = proto.range_to_mm(r)
+                st_ref, v_ref = proto.float_safety(r) if not math.isnan(r) else (2, 0.0)
+                logged_mode = row[args.mode_col].strip() if has_mode else ""
+                logged_v = float(row[args.v_col]) if has_v and row[args.v_col].strip() else None
+                w_mrad = proto.rad_to_mrad(float(row[args.w_col])) \
+                    if has_w and row[args.w_col].strip() else 0
+
+                stopped = (logged_mode == "STOP") if logged_mode in MODE_CODES else st_ref == 2
+                turning = logged_v is not None and logged_v == 0.0 and not stopped
+                cap = 0 if turning else proto.V_MAX_MMS
+
                 seq += 1
-                c = exchange(ser, seq, mm)
+                c = exchange(ser, seq, mm, cap, w_mrad)
                 fs["checked"] += 1
                 if c is None:
                     fs["lost"] += 1
                     continue
+                if turning:
+                    fs["turning_rows"] += 1
 
-                st_ref, v_ref = proto.float_safety(r) if not math.isnan(r) else (2, 0.0)
                 problems = []
                 if c.state != st_ref:
                     problems.append(f"state {c.state} != rule {st_ref}")
-                d = v_ref * 1000.0 - c.v_out
+                if logged_mode in MODE_CODES and c.state != MODE_CODES[logged_mode]:
+                    problems.append(f"state {c.state} != logged {logged_mode}")
+
+                ref = min(v_ref * 1000.0, cap)
+                d = ref - c.v_out
                 summary["worst_dv_mms"] = max(summary["worst_dv_mms"], abs(d))
                 if not (-1e-6 < d < V_TOL_MMS + 1e-6):
-                    problems.append(f"v {c.v_out} vs rule {v_ref * 1000.0:.3f}")
+                    problems.append(f"v {c.v_out} vs rule {ref:.3f}")
 
-                if has_mode and row[args.mode_col].strip() in MODE_CODES:
-                    if c.state != MODE_CODES[row[args.mode_col].strip()]:
-                        problems.append(f"state {c.state} != logged {row[args.mode_col]}")
-
-                if has_v and row[args.v_col].strip() != "":
+                if logged_v is not None:
                     margin = SLOPE * (10.0 ** -decimals(cell)) * 1000.0 / 2.0 + 1e-6
-                    dl = float(row[args.v_col]) * 1000.0 - c.v_out
-                    if dl >= V_TOL_MMS + margin:
-                        problems.append(f"logged v {row[args.v_col]} faster than board {c.v_out}")
-                    elif dl <= -margin:
-                        # controller slowed below the safety speed (turning in place)
-                        fs["override_rows"] += 1
-                        if has_w and row[args.w_col].strip() != "":
-                            wabs = abs(float(row[args.w_col]))
-                            cur = fs["override_w_abs_min"]
-                            fs["override_w_abs_min"] = wabs if cur is None else min(cur, wabs)
+                    dl = logged_v * 1000.0 - c.v_out
+                    if not (-margin < dl < V_TOL_MMS + margin):
+                        problems.append(f"v {c.v_out} vs logged {row[args.v_col]}")
+
+                if c.w_out != w_mrad:
+                    problems.append(f"w {c.w_out} vs logged {w_mrad}")
 
                 if c.state == 2:
                     fs["stop_rows"] += 1
-                    if has_w and row[args.w_col].strip() not in ("", "0", "0.0") \
-                            and abs(float(row[args.w_col])) > 1e-9:
+                    if w_mrad != 0:
                         fs["stop_rows_with_w"] += 1
 
                 if problems:
@@ -141,17 +148,17 @@ def main():
             summary["total"] += fs["checked"]
             summary["lost"] += fs["lost"]
             summary["mismatches"] += fs["mismatches"]
-            summary["override_rows"] += fs["override_rows"]
+            summary["turning_rows"] += fs["turning_rows"]
             print(f"{Path(path).name}: {fs['checked']} rows checked, {fs['lost']} lost, "
-                  f"{fs['mismatches']} mismatches | override rows {fs['override_rows']} "
-                  f"(min |w| {fs['override_w_abs_min']}) | STOP rows {fs['stop_rows']} "
+                  f"{fs['mismatches']} mismatches | turning rows {fs['turning_rows']} "
+                  f"| STOP rows {fs['stop_rows']} "
                   f"(logged w != 0 in {fs['stop_rows_with_w']})")
 
     summary["worst_dv_mms"] = round(summary["worst_dv_mms"], 3)
     summary["pass"] = summary["mismatches"] == 0 and summary["lost"] == 0
     print(f"\nreplay {'PASS' if summary['pass'] else 'FAIL'}: {summary['total']} steps, "
           f"{summary['lost']} lost, {summary['mismatches']} mismatches, "
-          f"{summary['override_rows']} override rows, "
+          f"{summary['turning_rows']} turning rows, "
           f"worst |dv| vs rule = {summary['worst_dv_mms']} mm/s")
     if args.out_json:
         out = Path(args.out_json)
