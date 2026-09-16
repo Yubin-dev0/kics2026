@@ -3,7 +3,7 @@ r"""Replays A1 run logs through the board and compares with what the sim control
 
 The A1 controller (sim/a1_controller.py) commands
     v = safety speed from min_range (RUN / SLOW / STOP), then v = 0 if |heading error| > 0.4
-    w = heading controller output, in every state (it keeps turning while stopped).
+    w = heading controller output, in every state (the STOP branch touches only v).
 The board reproduces this in local mode as v = min(safety speed, local_v), w = local_w, with
 N1 sending local_v = 0 while turning in place. Each row of data/a1/run_N.csv
 (t,x,y,yaw,min_range,wp_i,mode,v,w) is replayed as such an S line:
@@ -137,7 +137,7 @@ def main():
 
                 if c.state == 2:
                     fs["stop_rows"] += 1
-                    if w_mrad != 0:
+                    if w_mrad != 0:  # |w| >= 0.5 mrad/s after rounding
                         fs["stop_rows_with_w"] += 1
 
                 if problems:

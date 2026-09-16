@@ -11,7 +11,8 @@ test_core: test_core.c $(SRC)
 fake_stm32: fake_stm32.c $(SRC)
 	$(CC) $(CFLAGS) -o $@ $^
 
-test: test_core
+# builds the fake board too, so a stale fake_stm32 never outlives a protocol change
+test: test_core fake_stm32
 	./test_core
 
 clean:

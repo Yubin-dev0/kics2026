@@ -64,8 +64,10 @@ C,<seq>,<v_out>,<w_out>,<mode>,<state>,<switch_us>,<n_sw>,<bad_lines>*XX
 
 Command selection: edge mode outputs `edge_v, edge_w`; local mode outputs
 `min(safety speed, max(local_v, 0))` and `local_w`. This is exactly what the A1 controller
-does: it takes the safety speed, sets v to 0 while turning in place, and keeps commanding w
-even in STOP (replay of run_7: both STOP rows carry a nonzero w). Version 1 lacked `local_v`,
+does: it takes the safety speed, sets v to 0 while turning in place, and never zeroes w in
+STOP (sim/a1_controller.py lines 124-134 touch only v). In the logs the w recorded on STOP
+rows is below 0.5 mrad/s (run_7, 2 rows), so the data neither confirms nor contradicts this;
+the code does. Version 1 lacked `local_v`,
 so a board in local mode would have driven forward through waypoint turns.
 
 ## V line (version query)
