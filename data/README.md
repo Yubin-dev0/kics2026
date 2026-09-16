@@ -53,3 +53,20 @@ See `sim/NOTES.md` for their derivation and validation.
 ## Raw captures
 pcap files are excluded from git (see `.gitignore`). They live on N4 with
 a backup on an external drive. Only derived metrics belong here.
+
+## Bench stages (A2, A3)
+
+Rows for A2 and A3 come from fw/tools/a2_bench.py and use the same columns as A1.
+Columns without a bench meaning (course, clearance_m, sector_half_deg, v_slow_floor,
+waypoints, collisions, slow_steps, stop_steps, min_range_m) stay empty.
+
+| column | bench meaning |
+|---|---|
+| node | N1+N2 for the board, N1 for the fake board |
+| result | PASS, FAIL, or ABORTED (stopped before the meta file was complete) |
+| duration_s | wall time of the bench run |
+| status | valid when PASS on clean fw/ source, check when PASS on dirty source, otherwise discarded |
+| note | C median and max (us), host round trip median and p99 (ms), lost/sent lines, bad_lines change, watchdog gap, firmware version and build id |
+
+Per-line data is in data/a2/run_N.csv; full results and the verdict are in run_N_meta.json.
+Board replays of A1 logs (data/a2/replay_N.json) are not ledger rows.
