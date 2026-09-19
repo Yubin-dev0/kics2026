@@ -2,6 +2,10 @@
 
 ## Layout
 - `runs.csv` -- the run ledger, one row per run. The index to everything else.
+- `sweep.csv` -- the sweep index: one row per run with the condition it ran under and the
+  figures the paper draws (built by `analysis/sweep_index.py`; columns below)
+- `synthetic/sweep.csv` -- the same schema with invented values, for writing the figure
+  scripts before the sweep exists. Never a result; see `synthetic/README.md`
 - `a1/run_N.csv` -- per-step log of A1 driving run N
 - `a1/run_N_meta.json` -- the exact configuration run N was executed with
 - `a2/`, `a3/` -- serial bench runs (see Bench stages)
@@ -28,6 +32,38 @@
 
 `status` decides what may be cited. Only `valid` rows go into the paper.
 Empty cells mean the value was not recorded, not zero.
+
+## sweep.csv columns
+
+One row per run. This is what the figures and table 1 read (`analysis/FIGURES.md`); the
+run logs stay the source, and this file is the cut across runs. Empty means the value is
+not applicable to that run or has not been merged yet.
+
+| column | unit | meaning |
+|---|---|---|
+| run_id, stage, date | - | the run this row summarises, as in `runs.csv` |
+| policy, policy_name | - | 1 always local, 2 always edge, 3 RTT window, 4 metadata flag |
+| rtt_ms | ms | base RTT set with netem on N3: one of 10, 30, 60, 100, 200 |
+| load | - | none, L1 (45 s of iperf3 UDP) or L2 (a 2-3 s burst) |
+| rep | - | repetition number of this condition, 1 to 3 |
+| status | - | valid / check / discarded, as in `runs.csv`; only valid is cited |
+| result | - | GOAL or TIMEOUT |
+| a_ms | ms | metadata detection after t0 (N3 clock). From the C3 merge |
+| d_ms | ms | RTT window detection after t0 (N1 clock plus the A9 offset). From the C3 merge |
+| b_ms | ms | flag from N3 detection to the S line on N1. Policy 4 runs only |
+| u_ms | ms | USB path to the board, the A3 constant (3.5 ms p99 idle), not per run |
+| c_ms | ms | board mode switch, the run's median `switch_us` converted to ms |
+| g_ms | ms | D - (A + B + U + C), what is left of the head start. Policy 4 runs only |
+| n_col | - | collisions: entries into min_range < 0.15 m, a consecutive stretch counting once |
+| n_sw | - | switches during the run (board `n_sw` delta). N_false is this on the L2 rows |
+| m_rate | - | share of steps driving on a command older than one period (M of the paper) |
+| hold_rate | - | share of steps where no reply arrived at all and the last command was reused |
+| rtt_ms_median | ms | measured round trip of the run, a check against the netem setting |
+| edge_stop_steps | - | steps in edge mode where the safety rule would have stopped the robot; the fallback y axis of figure 2(b) (D19) |
+| local_steps | - | steps the board actually spent in local mode |
+| duration_s, min_range_m | s, m | run length in simulation time, closest approach |
+| delta_ms | ms | N1 to N3 clock offset used for this run (A9). From the C3 merge |
+| git, note | - | commit the run was executed at; free text |
 
 ## a1/run_N.csv columns
 

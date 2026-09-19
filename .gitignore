@@ -6,3 +6,4 @@ __pycache__/
 *.pcap
 *.pcapng
 data/raw/
+analysis/out/
