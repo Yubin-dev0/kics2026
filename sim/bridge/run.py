@@ -7,7 +7,7 @@ from pathlib import Path
 
 import serial
 
-from . import core, edge as edgelink, env, netio, policy as policies, summary
+from . import core, edge as edgelink, env, netio, policy as policies, rttwatch, summary
 from .paths import REPO
 import proto
 
@@ -32,6 +32,14 @@ def add_args(ap):
     ap.add_argument('--edge', default=None, metavar='HOST[:PORT]',
                     help=f'N4 edge controller, default port {edgelink.EDGE_PORT}; '
                          'policies 2 and 4 need it')
+    ap.add_argument('--window-s', type=float, default=rttwatch.WINDOW_S,
+                    help='RTT watcher window (plan 4.3)')
+    ap.add_argument('--baseline-s', type=float, default=rttwatch.BASELINE_S,
+                    help='run seconds used for RTT_min (plan 4.1: t0)')
+    ap.add_argument('--theta-high-ms', type=float, default=rttwatch.THETA_HIGH_MS,
+                    help='enter threshold over RTT_min (provisional until A0)')
+    ap.add_argument('--theta-low-ms', type=float, default=rttwatch.THETA_LOW_MS,
+                    help='leave threshold over RTT_min (provisional until A0)')
     ap.add_argument('--expect-build', default=None)
     ap.add_argument('--power-confirmed', action='store_true',
                     help='power facts could not be read; you checked charger and mode by hand')
@@ -48,6 +56,9 @@ class Session:
         if getattr(self.policy, 'needs_edge', False) and not args.edge:
             raise SystemExit(f'policy {args.policy} ({self.policy.name}) needs --edge')
         self.edge = edgelink.make(args.edge)
+        # every run with an edge link carries the RTT watcher (plan 5.3: D from every run)
+        self.watcher = rttwatch.Watcher(args.window_s, args.baseline_s, args.theta_high_ms,
+                                        args.theta_low_ms) if self.edge.configured else None
         self.port = args.port or BOARD_PORT
         self.expect = args.expect_build or (BOARD_BUILD if args.target == 'board' else FAKE_BUILD)
         out = Path(args.out) if args.out else REPO / 'data' / args.stage.lower()
@@ -68,7 +79,9 @@ class Session:
             'port': self.port, 'baud': args.baud, 'busid': args.busid,
             'proto_version_host': proto.PROTO_VERSION, 'expected_build': self.expect,
             'waypoints': None, 'git': commit, 'git_dirty': dirty, **env.code_info(),
-            'edge': self.edge.stats(), 'note': args.note,
+            'edge': self.edge.stats(),
+            'policy_params': self.watcher.params() if self.watcher else None,
+            'note': args.note,
             'limits': {'scan_step_s': summary.SCAN_STEP_S,
                        'reply_timeout_ms': core.REPLY_TIMEOUT_NS / 1e6,
                        'bridge_wdog_ms': core.BRIDGE_WDOG_NS / 1e6,
@@ -107,14 +120,13 @@ class Session:
             raise SystemExit(f'firmware mismatch: expected {self.expect!r}, got {fw}')
 
         self.edge.start()
-        self.runner = core.Runner(self.link, self.policy, self.edge, publish)
+        self.runner = core.Runner(self.link, self.policy, self.edge, publish, self.watcher)
         runner_box['r'] = self.runner
         self.meta['waypoints'] = self.runner.follower.waypoints
         self.link.start()
         self.t_ready = time.monotonic()
         if args.policy == 4:
-            self.flags = netio.FlagListener(
-                args.n3, lambda d, t, fseq, tdet: self.runner.on_flag(d, t))
+            self.flags = netio.FlagListener(args.n3, self.runner.on_flag)
             self.flags.start()
 
     def startup_problem(self):
@@ -149,6 +161,7 @@ class Session:
             self.meta['flags'] = self.flags.stats()
         self.edge.stop()
         self.meta['edge'] = self.edge.stats()
+        self.meta['rtt_watch'] = self.watcher.stats() if self.watcher else None
         self.link.stop()
         self.log.close()
         self.ser.close()
@@ -227,7 +240,14 @@ class Session:
                   f"M {e.get('miss_rate')} (steps {e.get('miss_rate_steps')}); "
                   f"holds {e.get('holds')}/{e.get('steps')}, "
                   f"bad {e.get('bad')}, out of order {e.get('out_of_order')}")
-        print(f"  board : settle {res.get('settle')}, switches in run {res['switches']}")
+        if self.watcher:
+            w = self.meta['rtt_watch']
+            print(f"  watch : RTT_min {w.get('rtt_min_us')} us, win {res.get('rtt_win_ms_max')} ms max, "
+                  f"degraded steps {res.get('rtt_degraded_steps')}, enters {w.get('enters')}, "
+                  f"leaves {w.get('leaves')}, t_det_rtt {res.get('t_det_rtt_s')} s "
+                  f"(theta {w.get('theta_high_ms')}/{w.get('theta_low_ms')} ms)")
+        print(f"  board : settle {res.get('settle')}, switches in run {res['switches']}, "
+              f"flag lines {res['flag_lines']}, flag events {res['flag_events']}")
         if a.target == 'board':
             w = m.get('windows', {})
             print(f"  power : AC {w.get('on_ac_power')}, mode {w.get('power_mode_ac')} "

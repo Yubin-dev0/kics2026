@@ -15,9 +15,11 @@ Stages:
             one row per line and run_N_meta.json with results and verdict.
             The ledger columns stay the same as for A1; bench figures go into
             'result' (PASS / FAIL / ABORTED) and a compact 'note'.
-  B1        bridge driving runs (sim/bridge/node.py): data/b1/run_N.csv with one row per
-            UART line and run_N_meta.json with results and verdict. Driving columns are
-            filled as for A1; loop, link and board figures go into 'note'.
+  B1, A10, B3, C1, C3
+            bridge driving runs (sim/bridge/node.py, sim/bridge/dry_run.py): data/<stage>/
+            run_N.csv with one row per UART line and run_N_meta.json with results and
+            verdict. Driving columns are filled as for A1; loop, link and board figures go
+            into 'note'.
 
 Status: A1 rows are 'valid', or 'check' when the source was dirty. Bench and bridge rows
 are 'valid' when the run passed on clean source, 'check' when it passed on dirty source,
@@ -40,7 +42,7 @@ FIELDS = ['run_id', 'stage', 'date', 'node', 'course', 'clearance_m',
           'min_range_m', 'status', 'note']
 
 BENCH_STAGES = ('A2', 'A3')
-BRIDGE_STAGES = ('B1',)
+BRIDGE_STAGES = ('B1', 'A10', 'B3', 'C1', 'C3')
 # world file of A1 runs 10-12: 3x3 course, obstacles 0.42 m from the path
 KNOWN_WORLDS = {'6b66d107282a': ('3x3', '0.42')}
 STATUSES = ('valid', 'check', 'discarded', 'partial', 'overwritten')
@@ -145,6 +147,13 @@ def bridge_note(meta):
     parts = [f"policy {meta.get('policy')}"]
     if meta.get('target') != 'board':
         parts.append(f"target {meta.get('target')}")
+    e = meta.get('edge') or {}
+    if e.get('edge') not in (None, 'none'):
+        parts.append(f"edge {e.get('target')} rtt med {e.get('rtt_ms_median')} "
+                     f"p99 {e.get('rtt_ms_p99')} ms M {e.get('miss_rate_steps')} "
+                     f"holds {e.get('holds')}/{e.get('steps')}")
+        parts.append(f"local steps {r.get('local_steps')} edge-STOP steps "
+                     f"{r.get('edge_stop_steps')} t_det_rtt {r.get('t_det_rtt_s')} s")
     if r.get('tx_dev_p99_ms') is not None:
         parts.append(f"jitter p99 {r['tx_dev_p99_ms']} max {r['tx_dev_max_ms']} "
                      f"sd {r['tx_sd_ms']} ms skips {r['tx_skips']}")

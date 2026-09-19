@@ -1,4 +1,5 @@
-"""Self-check of the edge link against a fake N4, with no board, no ROS and no network.
+"""Self-check of the edge link against a fake N4, of the N4 controller (edge/server.py)
+and of the RTT window watcher, with no board, no ROS and no network.
 
 The fake server answers every Q after a set delay with v = seq, so the column edge_v of a
 step names the datagram whose command the robot is driving on. That makes holding,
@@ -6,20 +7,35 @@ staleness and the deadline miss count readable straight off the step log.
 
   python3 -m bridge.test_edge                 (from sim/)
 
-It also serves as a stand-in N4 for an end-to-end dry run before the real edge controller
-exists (A10). In a second terminal:
+It also serves as a stand-in N4 with a test pattern instead of control, for link tests:
 
-  python3 -m bridge.test_edge --serve 47000 --delay-ms 0
+  python3 -m bridge.test_edge --serve 47000 --delay-ms 60
+
+and as the A10 probe against a running edge/server.py (pass: p99 < 10 ms, 1000 requests,
+none unanswered; plan 7.3):
+
+  python3 -m bridge.test_edge --probe 127.0.0.1:47000 --count 1000
 """
 import argparse
+import importlib.util
 import random
 import socket
 import threading
 import time
 
-from . import edge as edgelink
+from . import edge as edgelink, rttwatch
+from .paths import REPO
+import nav
 
 PERIOD_S = 0.05
+
+
+def load_server():
+    """edge/server.py is a script outside the package; import it by path."""
+    spec = importlib.util.spec_from_file_location('edge_server', REPO / 'edge' / 'server.py')
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 class FakeEdge:
@@ -260,8 +276,137 @@ def main():
     ok &= check('command stays zero', all(r['edge_v'] == 0 and r['edge_ok'] == 0 for r in rows))
     ok &= check('no reply invented', st['replied'] == 0)
 
+    ok &= check_server()
+    ok &= check_watcher()
+
     print(f"\n{'all checks passed' if ok else 'FAILURES above'}")
     raise SystemExit(0 if ok else 1)
+
+
+def check_server():
+    """edge/server.py: commands equal the nav formulas, the echo is intact, the process
+    time is small, and the client sees it as a healthy link."""
+    ok = True
+    print('\nN4 controller (edge/server.py)')
+    srvmod = load_server()
+    ctl = srvmod.Controller('a1')
+    # straight ahead towards waypoint 0 from the origin: full speed, no turn
+    ok &= check('aligned: V_MAX straight', ctl.command(0, 0, 0, 2000, 0) == (220, 0))
+    # 90 deg off: turn in place at W_MAX
+    v, w = ctl.command(1200, 0, 0, 2000, 1)
+    ok &= check('90 deg off: turn in place', v == 0 and w == 1000, f'({v}, {w})')
+    # small error: w = W_GAIN * err, clipped
+    _, err, _, wf = nav.heading(0.0, 0.0, 0.1, nav.WAYPOINTS[0])
+    v, w = ctl.command(0, 0, 100, 2000, 0)
+    ok &= check('small error: proportional w', v == 220 and w == int(round(wf * 1000)),
+                f'({v}, {w}) vs {wf:.3f} rad/s')
+    ok &= check('a1 rule slows at 300 mm', ctl.command(0, 0, 0, 300, 0) == (110, 0),
+                str(ctl.command(0, 0, 0, 300, 0)))
+    ok &= check('a1 rule stops at 150 mm', ctl.command(0, 0, 0, 150, 0)[0] == 0)
+    ok &= check('rule none never slows', srvmod.Controller('none').command(0, 0, 0, 150, 0)[0] == 220)
+    ok &= check('past the last waypoint: zero', ctl.command(0, 0, 0, 2000, 5) == (0, 0))
+
+    srv = srvmod.Server('127.0.0.1', 0, ctl)
+    port = srv.sock.getsockname()[1]
+    stop = threading.Event()
+
+    def loop():
+        while not stop.is_set():
+            srv.serve_one()
+    th = threading.Thread(target=loop, daemon=True)
+    th.start()
+    client = edgelink.EdgeClient('127.0.0.1', port)
+    client.start()
+    rows = drive(client, 40)
+    time.sleep(0.2)
+    client.stop()
+    stop.set()
+    th.join(timeout=1.0)
+    st, ss = client.stats(), srv.stats()
+    srv.close()
+    print(f'  client: {st}')
+    print(f'  server: {ss}')
+    ok &= check('every state answered', ss['received'] == 40 and ss['answered'] == 40 and
+                st['replied'] == 40, f"got {ss['received']} answered {ss['answered']}")
+    ok &= check('echo intact, nothing bad', st['echo_mismatch'] == 0 and st['bad'] == 0
+                and ss['bad'] == 0)
+    ok &= check('server process time p99 < 1 ms', ss['proc_us_p99'] < 1000,
+                f"p99 {ss['proc_us_p99']} us")
+    ok &= check('round trip p99 < 10 ms (A10 bar, loopback)', st['rtt_ms_p99'] < 10,
+                f"p99 {st['rtt_ms_p99']} ms")
+    # drive() sends x = seq mm, y = 0, yaw = 0, min 1000, wp 0: straight at full speed
+    ok &= check('commands are the follower output', all(
+        (r['edge_v'], r['edge_w']) == (220, 0) for r in rows if r['edge_ok']))
+    return ok
+
+
+def check_watcher():
+    """rttwatch.Watcher against a scripted RTT series: baseline, a rise, a fall."""
+    ok = True
+    print('\nRTT window watcher (policy 3)')
+    w = rttwatch.Watcher(window_s=2.0, baseline_s=15.0, theta_high_ms=20.0, theta_low_ms=10.0)
+    t0 = 1_000_000_000
+    rows = []
+    for k in range(0, 800):                  # 40 s at 20 Hz
+        el = k * PERIOD_S
+        if el < 20.0:
+            rtt = 60_000 + (k % 3) * 500     # 60 ms base with a little jitter
+        elif el < 30.0:
+            rtt = 60_000 + 40_000            # +40 ms of queueing
+        else:
+            rtt = 60_000
+        if k == 100:
+            rtt = None                       # one held step in the baseline
+        rows.append((el, w.observe(t0 + int(el * 1e9), el, rtt)))
+    ok &= check('RTT_min from the baseline only', w.rtt_min_us == 60_000,
+                f'{w.rtt_min_us}')
+    ok &= check('no verdict inside the baseline',
+                all(r['rtt_degraded'] == 0 and r['t_det_rtt_ns'] is None
+                    for el, r in rows if el < 15.0))
+    ok &= check('a held step carries the window, not a sample',
+                rows[100][1]['rtt_win_us'] is not None)
+    det = [el for el, r in rows if r['t_det_rtt_ns'] is not None]
+    ok &= check('exactly one detection', len(det) == 1, f'{det}')
+    # a 2 s mean of a +40 ms step crosses +20 ms after about 1 s
+    ok &= check('detected about 1 s after the rise', det and 20.9 <= det[0] <= 21.2,
+                f'{det[0] if det else None} s')
+    left = [el for (el, r), (el2, r2) in zip(rows, rows[1:])
+            if r['rtt_degraded'] == 1 and r2['rtt_degraded'] == 0]
+    ok &= check('left once, about 1.5 s after the fall (theta_low)',
+                len(left) == 1 and 31.3 <= left[0] <= 31.7, f'{left}')
+    ok &= check('enters 1, leaves 1', w.enters == 1 and w.leaves == 1)
+
+    w2 = rttwatch.Watcher(baseline_s=1.0)
+    for k in range(80):                      # answers for 1 s, then silence for 3 s
+        r = w2.observe(t0 + k * 50_000_000, k * PERIOD_S, 1000 if k < 20 else None)
+    ok &= check('an edge that stops answering is degraded once the window is empty',
+                r['rtt_degraded'] == 1 and w2.t_det_rtt_ns is not None)
+    return ok
+
+
+def probe():
+    """A10 measurement from N1 against a running edge/server.py: 20 Hz states for --count
+    steps, then the round-trip figures and the unanswered count."""
+    ap = argparse.ArgumentParser(description='A10 probe of the N4 controller.')
+    ap.add_argument('--probe', required=True, metavar='HOST[:PORT]')
+    ap.add_argument('--count', type=int, default=1000)
+    args = ap.parse_args()
+    client = edgelink.make(args.probe)
+    client.start()
+    t = time.monotonic()
+    drive(client, args.count)
+    time.sleep(0.3)
+    client.stop()
+    st = client.stats()
+    print(f"{args.count} states in {time.monotonic() - t:.1f} s -> {st['target']}")
+    print(f"  rtt med {st.get('rtt_ms_median')} p99 {st.get('rtt_ms_p99')} "
+          f"max {st.get('rtt_ms_max')} ms; replied {st['replied']}/{st['sent']}, "
+          f"unanswered {st['unanswered']}, bad {st['bad']}, echo mismatch {st['echo_mismatch']}, "
+          f"holds {st['holds']}, M {st['miss_rate_steps']}")
+    passed = (st['replied'] == args.count and st['unanswered'] == 0 and st['bad'] == 0
+              and st.get('rtt_ms_p99', 1e9) < 10.0)
+    print('A10 PASS' if passed else 'A10 FAIL', '(p99 < 10 ms, none unanswered)')
+    raise SystemExit(0 if passed else 1)
 
 
 def serve():
@@ -288,4 +433,4 @@ def serve():
 
 if __name__ == '__main__':
     import sys
-    (serve if '--serve' in sys.argv else main)()
+    (serve if '--serve' in sys.argv else probe if '--probe' in sys.argv else main)()

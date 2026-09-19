@@ -28,14 +28,16 @@ FIELDS = [
     't_scan_rx_ns', 't_flag_rx_ns', 't_uart_tx_ns', 't_c_rx_ns',
     'sim_time', 'x', 'y', 'yaw', 'wp_i', 'min_range', 'min_mm',
     'local_v', 'local_w', 'edge_v', 'edge_w', 'edge_ok', 'edge_seq_used',
-    't_send_ns', 't_recv_ns', 'rtt_us', 'held', 'deadline_miss', 't_det_rtt_ns',
+    't_send_ns', 't_recv_ns', 'rtt_us', 'held', 'deadline_miss',
+    'rtt_min_us', 'rtt_win_us', 'rtt_degraded', 't_det_rtt_ns',
+    'flag_seq', 't_det_meta_ns',
     'c_seq', 'v_out', 'w_out', 'mode', 'state', 'switch_us', 'n_sw', 'bad_lines', 'lost',
 ]
 C_FIELDS = ('v_out', 'w_out', 'mode', 'state', 'switch_us', 'n_sw', 'bad_lines')
-# Measured once per step by the edge link; a flag line repeats the command but must not
-# repeat the measurement, or the round trip would be counted twice.
+# Measured once per step by the edge link and the RTT watcher; a flag line repeats the
+# command but must not repeat the measurement, or the round trip would be counted twice.
 EDGE_MEASURED = ('t_send_ns', 't_recv_ns', 'rtt_us', 'held', 'deadline_miss',
-                 't_det_rtt_ns')
+                 'rtt_min_us', 'rtt_win_us', 'rtt_degraded', 't_det_rtt_ns')
 
 
 def now_ns():
@@ -209,13 +211,16 @@ class Runner:
 
     publish(v_mps, w_radps) sends /cmd_vel (or moves the dry-run robot).
     policy decides the requested mode; edge is the N4 link of sim/bridge/edge.py, which
-    supplies the edge command and its round-trip columns (NoEdge for policy 1)."""
+    supplies the edge command and its round-trip columns (NoEdge for policy 1). watcher
+    is the RTT window watcher (sim/bridge/rttwatch.py); it observes every run that has an
+    edge link and only policy 3 acts on it."""
 
-    def __init__(self, link, policy, edge, publish, waypoints=nav.WAYPOINTS,
+    def __init__(self, link, policy, edge, publish, watcher=None, waypoints=nav.WAYPOINTS,
                  run_limit_s=nav.RUN_LIMIT_S):
         self.link = link
         self.policy = policy
         self.edge = edge
+        self.watcher = watcher
         self.publish = publish
         self.follower = nav.Follower(waypoints)
         self.run_limit_s = run_limit_s
@@ -283,8 +288,11 @@ class Runner:
                 return
             self._step(ranges, sim_time, t_scan_rx_ns)
 
-    def on_flag(self, degrade, t_flag_rx_ns):
-        """Called from the flag listener thread (policy 4)."""
+    def on_flag(self, degrade, t_flag_rx_ns, flag_seq=None, t_det_meta_ns=None):
+        """Called from the flag listener thread with every N3 flag. Only policy 4 acts on
+        it; the others count it. flag_seq and t_det_meta_ns are N3's flag counter and its
+        wall-clock detection time (t_det_meta of plan 4.5), logged on the flag line so B
+        can be read from N1's log alone once the A9 offset is known."""
         with self.lock:
             self.flag_events += 1
             want = self.policy.flag_for_event(degrade)
@@ -293,7 +301,8 @@ class Runner:
             self.flag = want
             e = dict(self.last)
             e.update({'kind': 'flag', 'flag': want, 't_scan_rx_ns': None,
-                      't_flag_rx_ns': t_flag_rx_ns})
+                      't_flag_rx_ns': t_flag_rx_ns, 'flag_seq': flag_seq,
+                      't_det_meta_ns': t_det_meta_ns})
             for k in ('line', 't_uart_tx_ns', 't_c_rx_ns', 'c_seq',
                       'lost') + C_FIELDS + EDGE_MEASURED:
                 e.pop(k, None)
@@ -348,12 +357,18 @@ class Runner:
         v, w = cmd
         local = (int(round(v * 1000)), proto.rad_to_mrad(w))
         self.seq += 1
-        self.flag = self.policy.flag_for_scan(self.flag)
         # State out, freshest command in. The reply to this seq cannot be back yet; the
         # command applied here answers an earlier step (sim/bridge/edge.py).
         edge = self.edge.step(self.seq, int(round(x * 1000)), int(round(y * 1000)),
                               proto.rad_to_mrad(yaw), proto.range_to_mm(min_range),
                               self.follower.wp_i)
+        # The RTT watcher sees the round trip of the command applied at this step, and the
+        # policy decides the mode this S line asks for from its verdict (policy 3).
+        degraded = None
+        if self.watcher is not None:
+            edge.update(self.watcher.observe(t_scan_rx_ns, elapsed, edge.get('rtt_us')))
+            degraded = self.watcher.degraded
+        self.flag = self.policy.flag_for_scan(self.flag, degraded)
         e, _ = self._entry('scan', self.seq, ranges, sim_time, t_scan_rx_ns, local, edge)
         self.last = e
         self.link.send(e)

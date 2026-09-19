@@ -128,6 +128,19 @@ def summarize(rows):
             if r.get('edge_seq_used') not in ('', None)]
     out.update(dist(ages, 'edge_age_steps', nd=1))
 
+    # RTT watcher (policy 3 verdicts, present in every run with an edge link)
+    win = [_f(r['rtt_win_us']) / 1000.0 for r in scan if r.get('rtt_win_us') not in ('', None)]
+    out.update(dist(win, 'rtt_win_ms'))
+    out['rtt_degraded_steps'] = sum(r.get('rtt_degraded') == '1' for r in scan)
+    det = [int(r['t_det_rtt_ns']) for r in scan if r.get('t_det_rtt_ns') not in ('', None)]
+    first_tx = min((int(r['t_uart_tx_ns']) for r in scan), default=None)
+    out['t_det_rtt_s'] = (round((det[0] - first_tx) / 1e9, 3)
+                          if det and first_tx is not None else None)
+    # modes actually applied by the board (from the C lines): local steps per run
+    out['local_steps'] = sum(r['lost'] == '0' and r['mode'] == '1' for r in scan)
+    out['edge_stop_steps'] = sum(r['lost'] == '0' and r['mode'] == '0' and r['state'] == '2'
+                                 for r in scan)
+
     # WDOG lines: during the run they are faults; the one after the last line is expected
     wd = [r for r in rows if r['kind'] == 'wdog']
     run_start = min((int(r['t_uart_tx_ns']) for r in run_lines), default=None)

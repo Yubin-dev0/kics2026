@@ -14,9 +14,11 @@ chain needs is recorded from the first run.
 | `run.py` | one run from port open to meta file; verdict |
 | `summary.py` | run figures computed from `run_N.csv` (also a CLI) |
 | `env.py` | environment capture: Windows power mode, WSL and usbipd versions, routes, git, code hashes (also a CLI) |
-| `policy.py` | switching policies 1, 2 and 4; 3 needs the RTT window watcher |
+| `policy.py` | switching policies 1 to 4 |
+| `rttwatch.py` | RTT window watcher: RTT_min, 2 s window, double threshold; the verdict policy 3 acts on, logged in every run with an edge link |
 | `edge.py` | N4 edge link: state out, command in, round trip, hold of the last command |
-| `test_edge.py` | self-check of `edge.py` against a fake N4; also serves as one |
+| `test_edge.py` | self-check of `edge.py`, of `../../edge/server.py` and of `rttwatch.py`; fake N4 with a test pattern (`--serve`); A10 probe (`--probe`) |
+| `../../edge/server.py` | the N4 edge controller (waypoint follower over UDP), standard library only, runs on the lab PC under native Windows Python |
 | `netio.py` | N3 flag listener with keepalive, flag-path probe CLI |
 | `fake_n3.py` | stand-alone flag sender for tests and the A4 flag-path check |
 | `dry_run.py` | kinematic robot on the A1 course, drives the same code without ROS |
@@ -41,6 +43,20 @@ A mode change between scans (policy 4) goes out at once as a `flag` line that re
 latest scan's seq and sensor values. The firmware echoes seq without checking it
 (`fw/core/app.c`), so `line` is the unique key of the log.
 
+Policy 3 decides in the scan itself: after the edge step, the RTT watcher (`rttwatch.py`)
+sees the round trip of the command just applied, and the flag of this S line follows its
+verdict. There is no flag line and B is zero by construction. The watcher runs in every
+run with `--edge`, whatever the policy, so a policy 4 run also records when the RTT rule
+would have switched (`t_det_rtt_ns`, the D of plan 4.5) and a policy 2 run records how
+often it would have (`rtt_degraded`).
+
+Watcher rule (plan 4.3, D9, D10): RTT_min = smallest `rtt_us` while the run is younger
+than `--baseline-s` (15 s, plan 4.1: t0); RTT_win = mean of `rtt_us` over the last
+`--window-s` (2 s); after the baseline, RTT_win - RTT_min > `--theta-high-ms` enters
+local, < `--theta-low-ms` returns to edge. theta 20 / 10 ms are provisional until A0
+(9/24); each run records the values it used in the meta file (`policy_params`). Held
+steps add no sample; a window with no sample at all (edge silent) counts as degraded.
+
 Stops: a C line with state 3 (board watchdog) sets `/cmd_vel` to zero at once. If no C
 line arrives for 150 ms (provisional, same as the board), the bridge sets `/cmd_vel` to
 zero and logs a `bridge_stop` row.
@@ -60,6 +76,8 @@ clock for alignment with N3 (offset from A9).
 | `t_c_rx_ns` | when the reader returns the complete C line |
 | `t_send_ns` | just before the state datagram of `edge_seq_used` was sent to N4 |
 | `t_recv_ns` | right after `recvfrom` returned that datagram's reply |
+| `t_det_rtt_ns` | when the watcher's enter condition first held, right after the edge step of that scan |
+| `t_det_meta_ns` | N3 wall clock (`time.time_ns()` on N3) copied from the flag datagram; the only column not on N1's clock |
 
 B inside the bridge is `t_uart_tx_ns - t_flag_rx_ns`. U (UART write to board receive)
 cannot be timed one way; `t_c_rx_ns - t_uart_tx_ns` of the same line is its upper bound
@@ -89,7 +107,11 @@ One row per S line (`kind` = settle, scan, flag) written when its C line arrives
 | t_send_ns, t_recv_ns, rtt_us | ns, ns, us | round trip of that one datagram; empty on a held step |
 | held | - | 1 when no reply arrived during this period and the previous command was reused (D15) |
 | deadline_miss | - | 1 when the command applied is older than one period, i.e. the reply to the previous step did not make its 50 ms deadline. The run average is M |
-| t_det_rtt_ns | ns | policy 3: when the RTT window first crossed the threshold. Empty until the watcher exists |
+| rtt_min_us | us | watcher: smallest rtt_us seen inside the baseline (frozen after it) |
+| rtt_win_us | us | watcher: mean rtt_us over the last 2 s window at this step; empty while no reply is inside the window |
+| rtt_degraded | - | watcher verdict at this step, 1 = would be local under policy 3 (policy 3 acts on it, the others only record it) |
+| t_det_rtt_ns | ns | first step of the run at which the enter condition held (D of plan 4.5); on that row only, else empty |
+| flag_seq, t_det_meta_ns | -, ns | flag lines only: N3's flag counter and its detection time on N3's wall clock (`netio.py`); B = (t_flag_rx_ns + offset) - t_det_meta_ns once the A9 offset is known |
 | c_seq ... bad_lines | | C line fields (`fw/PROTOCOL.md`) |
 | lost | - | 1 when no C line came within 200 ms |
 
@@ -101,6 +123,8 @@ One row per S line (`kind` = settle, scan, flag) written when its C line arrives
     python3 -m bridge.node --run 1
     python3 -m bridge.node --run 101 --target fake --port /tmp/vhost
     python3 -m bridge.node --run 1 --stage b3 --policy 2 --edge 10.0.0.4
+    python3 -m bridge.node --run 2 --stage b3 --policy 3 --edge 10.0.0.4 --theta-high-ms 20 --theta-low-ms 10
+    python3 -m bridge.node --run 3 --stage c1 --policy 4 --edge 10.0.0.4 --n3 10.0.0.1
     python3 -m bridge.summary ../data/b1/run_1.csv
 
 Fake board (socat 1.7.4 on N1 rejects `-d0`):
@@ -110,12 +134,26 @@ Fake board (socat 1.7.4 on N1 rejects `-d0`):
     ../fw/host/fake_stm32 /tmp/vboard &
     python3 -m bridge.dry_run --run 1 --target fake --port /tmp/vhost --out /tmp/b1
 
-Before the real edge controller exists, `python3 -m bridge.test_edge --serve 47000
---delay-ms 60` answers state datagrams with a command of its own so the whole chain can
-be driven; its commands are a test pattern, not control.
+N4 edge controller (A10), from the repository root, in WSL2 for the loopback check and
+under native Windows Python on the lab PC (`py edge\server.py --listen 0.0.0.0:47000`):
+
+    python3 edge/server.py --listen 127.0.0.1:47000 --log /tmp/a10/edge_run_1.csv
+
+Test delays for loopback runs, never for the sweep: `--delay-ms 200` holds every reply
+(stand-in for a base RTT), `--extra-ms 40 --extra-from 20` adds a rise from a given second
+after the first datagram (stand-in for the load at t0). `--rule a1` (default) runs the A1
+speed rule on the edge too; `--rule none` never slows (decision D21, see `edge/README.md`).
+
+`python3 -m bridge.test_edge --serve 47000 --delay-ms 60` is the older stand-in: it answers
+with a test pattern (v = seq), not control, and stays for link tests only.
 
 Dry runs go to `/tmp` and are never registered. Driving runs are registered from the
-repository root: `python3 analysis/append_run.py B1 N`.
+repository root: `python3 analysis/append_run.py B1 N` (stages B1, A10, B3, C1, C3 use the
+same log and meta format; loopback driving runs go to `data/a10/`).
+
+The verdict printed after a run is the B1 one (goal, no collision, jitter, link, U bound).
+From B3 on, a policy 2 run that collides is a result, not a failed run: read `goal` and
+`no_collision` as figures there and judge the run by `jitter`, `link` and `u_bound`.
 
 ## B1 pass criteria
 
@@ -139,12 +177,42 @@ min_range are reported without a pass bar.
 Fake-board control runs are registered (node N1), unlike the fake bench runs in `fw/`,
 because they are the reference the board runs are compared with.
 
+## A10 pass criteria (edge controller, plan 7.3)
+
+Measured from N1 against the real N4 (lab PC over the N3 path once A4 is up; before that,
+over Wi-Fi or the direct cable), never on loopback:
+`python3 -m bridge.test_edge --probe <N4 address>:47000 --count 1000`.
+
+| ID | criterion | basis | status |
+|---|---|---|---|
+| A10-1 | Round trip p99 < 10 ms over 1000 states at 20 Hz | plan 7.3 | provisional |
+| A10-2 | 1000 of 1000 answered, no bad or echo-mismatched reply | plan 7.3 | provisional |
+| A10-3 | Server process time p99 < 1 ms (`proc_us` in the server log) | the controller must not be a visible share of the 50 ms period | provisional |
+| A10-4 | Policy 2 completes the A1 course with the fake board on loopback (GOAL, 5/5) | the controller drives the course before any network is added | confirmed 9/20, dry run |
+
+Loopback checks of 9/20 (dry run, fake board, `edge/server.py`, WSL2 loopback; ideal
+kinematics, so the distances are not A1 figures): policy 2 GOAL 47.95 s, 959 states,
+none unanswered, rtt median 0.31 ms, p99 0.55 ms, server proc p99 0.2 ms; policy 3 with a
+test delay of 60 ms and +40 ms from 20 s: RTT_min 60.5 ms, detection at 21.1 s of the
+run, one switch, GOAL; policy 4 with `fake_n3.py` every 8 s: 4 flags, 4 flag lines, 4
+switches, flag-to-UART 46-65 us, rtt recorded on 952 of 956 steps, GOAL. Policy 2 with a
+steady test delay of 200 ms: GOAL, no collision, no STOP step, commands 5 steps old
+(both rules) -- see Known constraints.
+
 ## Known constraints
 
-- Policy 3 is not implemented: the RTT window watcher that reads `rtt_us` and writes
-  `t_det_rtt_ns` still has to be written.
-- The edge datagram format and port 47000 are provisional until the N4 controller exists.
-  N4 must echo `seq` and `t_send_ns` unchanged, or the round trip cannot be read.
+- On the A1 course a steady 200 ms delay did not make policy 2 collide in the dry run
+  (min_range 0.27 m, no STOP step, either rule): between waypoints the stale command is
+  the same command, and the obstacles sit beside the path. The dry run has ideal
+  kinematics, so Gazebo (B3, 9/23) has the last word, but the fallback y axis of plan
+  7.1 (edge-mode STOP steps) was zero here too. If B3 confirms it, figure 2(b) needs a
+  course change (an obstacle the local rule has to act on) or a load pattern with jitter
+  rather than a fixed delay; decide before the sweep script is written (D19).
+- theta_high / theta_low of the watcher are provisional (20 / 10 ms) until A0.
+- The edge datagram format and port 47000 are provisional until B3 has run over the N3
+  path. N4 must echo `seq` and `t_send_ns` unchanged, or the round trip cannot be read.
+- Which speed rule the edge controller runs in the sweep (`--rule a1` or `none`) is open
+  (D21). The bridge cannot see the rule; record it in `--note`.
 - A steady added delay produces almost no held steps even at 200 ms, because replies keep
   arriving one per period; what grows is their age. Read `deadline_miss` for the paper's
   M and `held` for link outages.

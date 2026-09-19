@@ -45,8 +45,8 @@ PS_SCRIPT = (
     "adapters=@($a)} | ConvertTo-Json -Depth 3 -Compress"
 )
 
-BRIDGE_SOURCES = ['sim/bridge/core.py', 'sim/bridge/policy.py', 'sim/bridge/summary.py',
-                  'sim/bridge/node.py', 'sim/bridge/run.py', 'sim/bridge/env.py',
+BRIDGE_SOURCES = ['sim/bridge/core.py', 'sim/bridge/policy.py', 'sim/bridge/rttwatch.py',
+                  'sim/bridge/summary.py', 'sim/bridge/node.py', 'sim/bridge/run.py', 'sim/bridge/env.py',
                   'sim/bridge/paths.py', 'sim/nav.py', 'fw/tools/proto.py']
 NET_SOURCES = ['sim/bridge/netio.py']
 EDGE_SOURCES = ['sim/bridge/edge.py']
