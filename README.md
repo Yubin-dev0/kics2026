@@ -6,7 +6,7 @@ and switching robot controllers accordingly. KICS 2026 Fall.
 ## Layout
 | path | contents | owner |
 |---|---|---|
-| `sim/` | N1 Gazebo simulation, A1 controller, world files | Yubin |
+| `sim/` | N1 Gazebo simulation, A1 controller, world files, UART bridge (`sim/bridge/`) | Yubin |
 | `fw/` | STM32 safety controller firmware (A2) | Yubin |
 | `capture/` | N3 packet capture and feature extraction (A7) | Hyunbin |
 | `load/` | N5 competing-traffic generator (A8) | Hyunbin |
@@ -23,4 +23,6 @@ and switching robot controllers accordingly. KICS 2026 Fall.
 - Filenames, paths, commit messages and docs are in English.
 
 ## Status
-A3 complete (runs 3-6, 2026-09-17). See `fw/NOTES.md`; A2 criteria in `fw/README.md`, A1 in `sim/NOTES.md`.
+A3 complete (runs 3-6, 2026-09-17). B1 bridge written and checked on the fake board;
+driving runs pending. See `sim/bridge/README.md`, `fw/NOTES.md`; A2 criteria in
+`fw/README.md`, A1 in `sim/NOTES.md`.

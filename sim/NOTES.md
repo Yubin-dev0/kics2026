@@ -45,10 +45,19 @@ and edits to the world file will silently have no effect.
 - RTF stays at 1.00; SimTime - RealTime holds a constant ~0.27 s offset
   with no cumulative drift.
 - `/clock` is published at 10 Hz, so simulation timestamps are quantized
-  to 0.1 s (the CSV shows each timestamp twice). The controller itself
-  runs at a correct 20 Hz, so this does not affect A1. It does prevent
-  microsecond-level measurement of the A/B/C/D timing chain in stages
-  B and C -- a separate wall clock or a higher `/clock` rate is needed.
+  to 0.1 s (the CSV shows each timestamp twice).
+- Correction (2026-09-17): the A1 controller did not update at 20 Hz. It ran
+  with `use_sim_time:=true`, so its 50 ms timer followed `/clock` and fired
+  twice per 0.1 s tick. The second call saw the same scan: within every pair
+  min_range never differs, and most pairs are identical rows (run_10: 467 of
+  486, run_11: 479 of 483, run_12: 471 of 483, run_7: 499 of 514; the rest
+  differ only in odometry). A1 therefore commanded the robot at 10 Hz of
+  simulation time while /scan ran at 20 Hz. The A1 results stand: d_stop
+  adds a 33 mm delay distance (150 ms at 0.22 m/s) to d_col, a 100 ms
+  update costs at most 22 mm, and min_range stayed at 0.262-0.277 m.
+- Stage B does not use the ROS clock. The bridge (`sim/bridge/`) steps once
+  per /scan and times everything with the monotonic clock; see
+  `sim/bridge/README.md`.
 
 ## Thresholds
 | value  | number | basis |
@@ -74,6 +83,13 @@ narrowed to 0.0144 m and STOP is 0 in all three runs.
 
 Pass criteria met: 3/3 complete in under 60 s (48.7-49.0 s), zero
 collisions, step counts within 1.3% (774-784), SLOW engaged in every run.
+
+## Shared follower
+`sim/nav.py` holds the A1 heading and waypoint formulas for the bridge.
+`sim/a1_controller.py` is unchanged so that A1 code_sha1 still matches.
+`python3 sim/test_nav.py` replays runs 6-12 (7036 rows) through `nav.py`
+and requires the logged mode and command on every row, within the error
+that the log's 4-decimal rounding can explain: 0 mismatches.
 
 ## Forward sector
 Originally +/-15 deg (indices 0-15 and 345-359). With a lateral

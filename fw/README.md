@@ -8,7 +8,7 @@
 | `host/` | host build of `core`: unit tests and `fake_stm32` (the core behind a tty) |
 | `stm32/port/` | HAL glue for NUCLEO-F446RE (UART DMA, DWT) |
 | `stm32/n2_safety/` | STM32CubeMX/CubeIDE project; `Core/Src/fw_sources.c` compiles `core` and `port` (see `stm32/README.md`) |
-| `tools/` | `proto.py` (shared with the N1 bridge), `a2_bench.py`, `replay_check.py` |
+| `tools/` | `proto.py` (shared with the N1 bridge in `sim/bridge/`), `a2_bench.py`, `replay_check.py` |
 
 ## Host checks (Linux or WSL)
 
@@ -20,7 +20,7 @@ Bench and replay without a board:
 
 ```
 make -C fw/host fake_stm32
-socat -d0 pty,raw,echo=0,link=/tmp/vboard pty,raw,echo=0,link=/tmp/vhost &
+socat pty,raw,echo=0,link=/tmp/vboard pty,raw,echo=0,link=/tmp/vhost &
 fw/host/fake_stm32 /tmp/vboard &
 python3 fw/tools/a2_bench.py --port /tmp/vhost --run 1 --target fake --out /tmp/a2
 ```

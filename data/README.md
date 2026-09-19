@@ -4,6 +4,8 @@
 - `runs.csv` -- the run ledger, one row per run. The index to everything else.
 - `a1/run_N.csv` -- per-step log of A1 driving run N
 - `a1/run_N_meta.json` -- the exact configuration run N was executed with
+- `a2/`, `a3/` -- serial bench runs (see Bench stages)
+- `b1/run_N.csv`, `b1/run_N_meta.json` -- bridge driving runs (see Bridge stages)
 
 ## runs.csv columns
 
@@ -40,8 +42,10 @@ Header: `t,x,y,yaw,min_range,wp_i,mode,v,w`
 | w | rad/s | commanded angular speed |
 
 `t` is quantized to 0.1 s because Gazebo publishes `/clock` at 10 Hz, so
-each timestamp appears on two consecutive rows. The controller itself
-runs at 20 Hz; see `sim/NOTES.md`.
+each timestamp appears on two consecutive rows. The second row of a pair
+repeats the first step on the same scan, so A1 updated the command at 10 Hz
+of simulation time and SLOW/STOP counts are twice the number of distinct
+steps; see `sim/NOTES.md`.
 
 `min_range` is measured from the LiDAR, which sits 3.2 cm behind the
 chassis centre. Distances to the chassis front are 3.2 cm shorter.
@@ -70,3 +74,22 @@ waypoints, collisions, slow_steps, stop_steps, min_range_m) stay empty.
 
 Per-line data is in data/a2/run_N.csv; full results and the verdict are in run_N_meta.json.
 Board replays of A1 logs (data/a2/replay_N.json) are not ledger rows.
+
+## Bridge stages (B1)
+
+Rows for B1 come from sim/bridge/node.py. Driving columns mean the same as for A1, with
+these differences:
+
+| column | bridge meaning |
+|---|---|
+| node | N1+N2 for the board, N1 for the fake-board control runs (run_id 101 and up) |
+| course, clearance_m | filled when the world file hash matches A1 runs 10-12 |
+| result | GOAL, TIMEOUT, or ABORTED |
+| duration_s | simulation time from the first run scan to the finishing scan |
+| collisions | 1 if min_range fell below d_col at any step |
+| slow_steps, stop_steps | scan lines whose C line reported SLOW or STOP (one per step, not doubled as in A1) |
+| status | valid when every verdict passed on clean source, check when it passed on dirty source, otherwise discarded |
+| note | PASS/FAIL, policy, loop jitter (p99, max, sd of the deviation from 50 ms; skips), U upper bound, lost/sent, bad_lines change, watchdog lines, end-of-run watchdog gap, power mode, firmware, failed verdicts |
+
+Per-line data and column meanings: `sim/bridge/README.md`. Full results and verdict are
+in run_N_meta.json.

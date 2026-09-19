@@ -39,8 +39,10 @@ S,<seq>,<min_mm>,<local_v>,<local_w>,<edge_v>,<edge_w>,<flag>*XX
 `flag` is a level, not an event. Every line carries the mode N1 wants; N2 switches only when
 it differs from the current mode. A corrupted line therefore delays a switch by one line
 instead of losing it. When the requested mode changes, N1 sends an extra S line immediately
-(reusing the latest sensor values) instead of waiting for the next `/scan`, so the up to
-50 ms wait does not leak into the flag delivery time B.
+(reusing the latest sensor values and seq) instead of waiting for the next `/scan`, so the
+up to 50 ms wait does not leak into the flag delivery time B. N2 echoes seq without checking
+order or uniqueness, so two lines may carry the same seq; the bridge log keys lines by its
+own `line` counter (`sim/bridge/README.md`).
 
 N1 converts ranges with `floor(r * 1000)`. Truncation only ever shortens a distance, so every
 conversion error is on the safe side.
