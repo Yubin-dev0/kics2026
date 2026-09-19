@@ -125,6 +125,7 @@ One row per S line (`kind` = settle, scan, flag) written when its C line arrives
     python3 -m bridge.node --run 1 --stage b3 --policy 2 --edge 10.0.0.4
     python3 -m bridge.node --run 2 --stage b3 --policy 3 --edge 10.0.0.4 --theta-high-ms 20 --theta-low-ms 10
     python3 -m bridge.node --run 3 --stage c1 --policy 4 --edge 10.0.0.4 --n3 10.0.0.1
+    python3 -m bridge.node --run 4 --stage c3 --policy 1 --edge 10.0.0.4 --rtt-ms 60 --load L1 --rep 1
     python3 -m bridge.summary ../data/b1/run_1.csv
 
 Fake board (socat 1.7.4 on N1 rejects `-d0`):
@@ -146,6 +147,16 @@ speed rule on the edge too; `--rule none` never slows (decision D21, see `edge/R
 
 `python3 -m bridge.test_edge --serve 47000 --delay-ms 60` is the older stand-in: it answers
 with a test pattern (v = seq), not control, and stays for link tests only.
+
+Every sweep run takes `--edge`, policy 1 included. Policy 1 ignores the commands, but the
+state datagrams have to be on the link all the same: they are the robot flow the N3
+detector measures, and their round trips are what the RTT watcher turns into D. A policy 1
+run without `--edge` produces neither, and the condition is no longer the same across the
+four policies.
+
+`--rtt-ms`, `--load` and `--rep` record the sweep condition in the meta file. They change
+nothing in the run; `analysis/sweep_index.py` reads them to build `data/sweep.csv`, which
+is what the figures are drawn from (`analysis/FIGURES.md`). Fill them in from B3 on.
 
 Dry runs go to `/tmp` and are never registered. Driving runs are registered from the
 repository root: `python3 analysis/append_run.py B1 N` (stages B1, A10, B3, C1, C3 use the

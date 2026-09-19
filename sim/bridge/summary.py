@@ -16,6 +16,7 @@ SKIP_MS = 75.0          # an interval this long means a whole scan went missing
 U_P99_MS = 5.0          # same bound as A3-7 (fw/NOTES.md)
 EDGE_DEADLINE_MS = 50.0  # one control period: a reply later than this missed its deadline
 SCAN_STEP_S = 0.05      # /scan header stamps advance by one LiDAR period (20 Hz)
+D_COL_M = 0.15          # collision threshold, confirmed in A1 (sim/NOTES.md)
 STATE_NAMES = {0: 'RUN', 1: 'SLOW', 2: 'STOP'}
 
 
@@ -101,6 +102,18 @@ def summarize(rows):
     out['states'] = states
     mr = [_f(r['min_range']) for r in scan]
     out['min_range_m'] = round(min(mr), 4) if mr else None
+    # N_col of the plan (5.3): entries into min_range < d_col, a consecutive stretch
+    # counting once. This is the y axis of figure 2(b), so it is computed here and
+    # nowhere else.
+    n_col, inside = 0, False
+    for v in mr:
+        if v is not None and v < D_COL_M:
+            if not inside:
+                n_col += 1
+            inside = True
+        else:
+            inside = False
+    out['n_col'] = n_col
     out['sim_time_first'] = _f(scan[0]['sim_time']) if scan else None
     out['sim_time_last'] = _f(scan[-1]['sim_time']) if scan else None
     out['last_wp_i'] = _i(scan[-1]['wp_i']) if scan else None

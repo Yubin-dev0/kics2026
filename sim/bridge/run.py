@@ -43,6 +43,12 @@ def add_args(ap):
     ap.add_argument('--expect-build', default=None)
     ap.add_argument('--power-confirmed', action='store_true',
                     help='power facts could not be read; you checked charger and mode by hand')
+    ap.add_argument('--rtt-ms', type=float, default=None,
+                    help='sweep condition: base RTT set with netem on N3')
+    ap.add_argument('--load', default=None, choices=('none', 'L1', 'L2'),
+                    help='sweep condition: competing load of this run')
+    ap.add_argument('--rep', type=int, default=None,
+                    help='sweep condition: repetition number of this condition')
     ap.add_argument('--note', default='')
 
 
@@ -81,6 +87,7 @@ class Session:
             'waypoints': None, 'git': commit, 'git_dirty': dirty, **env.code_info(),
             'edge': self.edge.stats(),
             'policy_params': self.watcher.params() if self.watcher else None,
+            'condition': {'rtt_ms': args.rtt_ms, 'load': args.load, 'rep': args.rep},
             'note': args.note,
             'limits': {'scan_step_s': summary.SCAN_STEP_S,
                        'reply_timeout_ms': core.REPLY_TIMEOUT_NS / 1e6,
