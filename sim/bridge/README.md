@@ -1,9 +1,9 @@
 # N1 UART bridge (B1 onward)
 
 Connects the Gazebo robot (N1) to the N2 safety board over the line protocol in
-`fw/PROTOCOL.md`, and later to the N4 edge controller and the N3 switching flags. The
-same code is used from B1 through the C stage, so every timestamp the timing chain needs
-is recorded from the first run.
+`fw/PROTOCOL.md`, to the N4 edge controller over UDP, and later to the N3 switching
+flags. The same code is used from B1 through the C stage, so every timestamp the timing
+chain needs is recorded from the first run.
 
 ## Files
 
@@ -14,8 +14,10 @@ is recorded from the first run.
 | `run.py` | one run from port open to meta file; verdict |
 | `summary.py` | run figures computed from `run_N.csv` (also a CLI) |
 | `env.py` | environment capture: Windows power mode, WSL and usbipd versions, routes, git, code hashes (also a CLI) |
-| `policy.py` | switching policies 1 and 4; 2 and 3 arrive with B2 and B4 |
-| `netio.py` | edge stub, N3 flag listener with keepalive, flag-path probe CLI |
+| `policy.py` | switching policies 1, 2 and 4; 3 needs the RTT window watcher |
+| `edge.py` | N4 edge link: state out, command in, round trip, hold of the last command |
+| `test_edge.py` | self-check of `edge.py` against a fake N4; also serves as one |
+| `netio.py` | N3 flag listener with keepalive, flag-path probe CLI |
 | `fake_n3.py` | stand-alone flag sender for tests and the A4 flag-path check |
 | `dry_run.py` | kinematic robot on the A1 course, drives the same code without ROS |
 | `../nav.py` | waypoint follower shared with the A1 formulas; `../test_nav.py` replays A1 |
@@ -23,8 +25,10 @@ is recorded from the first run.
 ## Control step
 
 One S line per `/scan`. N1 computes the heading (`local_w`) and whether the robot may move
-forward (`local_v` = 220 or 0, turning in place above 0.4 rad). N2 applies the safety rule
-and returns the command, which the bridge publishes when the C line arrives. A step that
+forward (`local_v` = 220 or 0, turning in place above 0.4 rad), sends the robot state to
+N4 and takes the freshest command that has come back (`edge.py`; none of it happens
+without `--edge`). N2 applies the safety rule, picks the command for the mode it is in,
+and returns it; the bridge publishes it when the C line arrives. A step that
 reaches a waypoint computes the next heading in the same scan (A1 did the same in its
 paired timer call, see `sim/NOTES.md`), so the line cadence stays at 20 Hz.
 
@@ -54,6 +58,8 @@ clock for alignment with N3 (offset from A9).
 | `t_flag_rx_ns` | right after `recvfrom` returns the flag datagram (flag lines) |
 | `t_uart_tx_ns` | just before the S line is written |
 | `t_c_rx_ns` | when the reader returns the complete C line |
+| `t_send_ns` | just before the state datagram of `edge_seq_used` was sent to N4 |
+| `t_recv_ns` | right after `recvfrom` returned that datagram's reply |
 
 B inside the bridge is `t_uart_tx_ns - t_flag_rx_ns`. U (UART write to board receive)
 cannot be timed one way; `t_c_rx_ns - t_uart_tx_ns` of the same line is its upper bound
@@ -78,16 +84,23 @@ One row per S line (`kind` = settle, scan, flag) written when its C line arrives
 | min_range | m | forward +/-48 deg minimum, sensor-referenced (inf = no return) |
 | min_mm | mm | wire value, `floor(min_range * 1000)` |
 | local_v, local_w | mm/s, mrad/s | follower output |
-| edge_v, edge_w, edge_ok | mm/s, mrad/s, - | edge command; 0, 0, 0 from the stub until B2 |
+| edge_v, edge_w, edge_ok | mm/s, mrad/s, - | edge command applied at this step; 0, 0, 0 with no `--edge` and before the first reply |
+| edge_seq_used | - | the step whose state that command answers; `seq` minus this is its age in periods |
+| t_send_ns, t_recv_ns, rtt_us | ns, ns, us | round trip of that one datagram; empty on a held step |
+| held | - | 1 when no reply arrived during this period and the previous command was reused (D15) |
+| deadline_miss | - | 1 when the command applied is older than one period, i.e. the reply to the previous step did not make its 50 ms deadline. The run average is M |
+| t_det_rtt_ns | ns | policy 3: when the RTT window first crossed the threshold. Empty until the watcher exists |
 | c_seq ... bad_lines | | C line fields (`fw/PROTOCOL.md`) |
 | lost | - | 1 when no C line came within 200 ms |
 
 ## Usage (from `sim/` in WSL2)
 
     python3 test_nav.py
+    python3 -m bridge.test_edge
     python3 -m bridge.env
     python3 -m bridge.node --run 1
     python3 -m bridge.node --run 101 --target fake --port /tmp/vhost
+    python3 -m bridge.node --run 1 --stage b3 --policy 2 --edge 10.0.0.4
     python3 -m bridge.summary ../data/b1/run_1.csv
 
 Fake board (socat 1.7.4 on N1 rejects `-d0`):
@@ -96,6 +109,10 @@ Fake board (socat 1.7.4 on N1 rejects `-d0`):
     socat pty,raw,echo=0,link=/tmp/vboard pty,raw,echo=0,link=/tmp/vhost &
     ../fw/host/fake_stm32 /tmp/vboard &
     python3 -m bridge.dry_run --run 1 --target fake --port /tmp/vhost --out /tmp/b1
+
+Before the real edge controller exists, `python3 -m bridge.test_edge --serve 47000
+--delay-ms 60` answers state datagrams with a command of its own so the whole chain can
+be driven; its commands are a test pattern, not control.
 
 Dry runs go to `/tmp` and are never registered. Driving runs are registered from the
 repository root: `python3 analysis/append_run.py B1 N`.
@@ -124,8 +141,13 @@ because they are the reference the board runs are compared with.
 
 ## Known constraints
 
-- Policies 2 and 3 are not implemented; the edge command is a stub (0, 0). B2 adds the N4
-  UDP client with its 50 ms deadline and miss count.
+- Policy 3 is not implemented: the RTT window watcher that reads `rtt_us` and writes
+  `t_det_rtt_ns` still has to be written.
+- The edge datagram format and port 47000 are provisional until the N4 controller exists.
+  N4 must echo `seq` and `t_send_ns` unchanged, or the round trip cannot be read.
+- A steady added delay produces almost no held steps even at 200 ms, because replies keep
+  arriving one per period; what grows is their age. Read `deadline_miss` for the paper's
+  M and `held` for link outages.
 - The flag datagram format in `netio.py` and port 47100 are provisional until agreed with
   the N3 detector owner. The keepalive path through WSL2 NAT is tested at A4.
 - Power facts come from WSL interop (PowerShell). The overlay GUID mapping in `env.py`

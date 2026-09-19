@@ -1,6 +1,5 @@
 """Network side of the N1 bridge.
 
-EdgeStub     stands in for the N4 edge controller until B2 (returns 0, 0, not ok).
 FlagListener receives N3 switching flags. WSL2 runs in NAT mode, so N3 cannot open a
              UDP flow towards N1 (fw/NOTES.md, known constraints). N1 therefore sends a
              keepalive to N3 once per second from the same socket it listens on; N3
@@ -28,13 +27,6 @@ import proto
 
 FLAG_PORT = 47100        # provisional
 KEEPALIVE_S = 1.0        # plan 3.2: 1 Hz heartbeat
-
-
-class EdgeStub:
-    name = 'stub'
-
-    def command(self, seq):
-        return 0, 0, False
 
 
 def _checked(data):

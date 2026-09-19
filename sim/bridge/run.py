@@ -7,7 +7,7 @@ from pathlib import Path
 
 import serial
 
-from . import core, env, netio, policy as policies, summary
+from . import core, edge as edgelink, env, netio, policy as policies, summary
 from .paths import REPO
 import proto
 
@@ -29,6 +29,9 @@ def add_args(ap):
     ap.add_argument('--busid', default='1-3')
     ap.add_argument('--out', default=None, help='output folder (default data/<stage>)')
     ap.add_argument('--n3', default=None, help='N3 address for policy 4 flags')
+    ap.add_argument('--edge', default=None, metavar='HOST[:PORT]',
+                    help=f'N4 edge controller, default port {edgelink.EDGE_PORT}; '
+                         'policies 2 and 4 need it')
     ap.add_argument('--expect-build', default=None)
     ap.add_argument('--power-confirmed', action='store_true',
                     help='power facts could not be read; you checked charger and mode by hand')
@@ -42,6 +45,9 @@ class Session:
         self.policy = policies.make(args.policy)
         if args.policy == 4 and not args.n3:
             raise SystemExit('policy 4 needs --n3')
+        if getattr(self.policy, 'needs_edge', False) and not args.edge:
+            raise SystemExit(f'policy {args.policy} ({self.policy.name}) needs --edge')
+        self.edge = edgelink.make(args.edge)
         self.port = args.port or BOARD_PORT
         self.expect = args.expect_build or (BOARD_BUILD if args.target == 'board' else FAKE_BUILD)
         out = Path(args.out) if args.out else REPO / 'data' / args.stage.lower()
@@ -62,12 +68,13 @@ class Session:
             'port': self.port, 'baud': args.baud, 'busid': args.busid,
             'proto_version_host': proto.PROTO_VERSION, 'expected_build': self.expect,
             'waypoints': None, 'git': commit, 'git_dirty': dirty, **env.code_info(),
-            'edge': 'stub', 'note': args.note,
+            'edge': self.edge.stats(), 'note': args.note,
             'limits': {'scan_step_s': summary.SCAN_STEP_S,
                        'reply_timeout_ms': core.REPLY_TIMEOUT_NS / 1e6,
                        'bridge_wdog_ms': core.BRIDGE_WDOG_NS / 1e6,
                        'jitter_p99_ms': summary.JITTER_P99_MS, 'skip_ms': summary.SKIP_MS,
-                       'u_p99_ms': summary.U_P99_MS},
+                       'u_p99_ms': summary.U_P99_MS,
+                       'edge_deadline_ms': edgelink.DEADLINE_NS / 1e6},
         }
         if not Path(self.port).exists():
             raise SystemExit(f'{self.port} not found: attach the board (usbipd attach --wsl '
@@ -99,7 +106,8 @@ class Session:
             self._discard()
             raise SystemExit(f'firmware mismatch: expected {self.expect!r}, got {fw}')
 
-        self.runner = core.Runner(self.link, self.policy, netio.EdgeStub(), publish)
+        self.edge.start()
+        self.runner = core.Runner(self.link, self.policy, self.edge, publish)
         runner_box['r'] = self.runner
         self.meta['waypoints'] = self.runner.follower.waypoints
         self.link.start()
@@ -123,6 +131,7 @@ class Session:
     def _discard(self):
         self.log.close()
         self.ser.close()
+        self.edge.stop()
         self.csv_path.unlink(missing_ok=True)
 
     def abort(self, why):
@@ -138,6 +147,8 @@ class Session:
         if self.flags:
             self.flags.stop()
             self.meta['flags'] = self.flags.stats()
+        self.edge.stop()
+        self.meta['edge'] = self.edge.stats()
         self.link.stop()
         self.log.close()
         self.ser.close()
@@ -154,6 +165,7 @@ class Session:
             'stray_samples': self.link.stray[:5],
             'flag_events': r.flag_events,
         })
+        res.update(summary.edge_figures(self.meta['edge']))
         self.meta['clock_pairs'] = r.clock
         self.meta['finished'] = dt.datetime.now().astimezone().isoformat(timespec='seconds')
         self.meta['results'] = res
@@ -207,6 +219,14 @@ class Session:
               f"bridge stops {res['bridge_stops']}")
         print(f"  steps : sim step median {res.get('sim_step_median_s')} s, "
               f"repeats {res.get('sim_step_repeats')} (one line per /scan)")
+        e = m.get('edge', {})
+        if e.get('edge') != 'none':
+            print(f"  edge  : rtt med {e.get('rtt_ms_median')} p99 {e.get('rtt_ms_p99')} "
+                  f"max {e.get('rtt_ms_max')} ms; sent {e.get('sent')}, "
+                  f"late {e.get('late')}, unanswered {e.get('unanswered')}, "
+                  f"M {e.get('miss_rate')} (steps {e.get('miss_rate_steps')}); "
+                  f"holds {e.get('holds')}/{e.get('steps')}, "
+                  f"bad {e.get('bad')}, out of order {e.get('out_of_order')}")
         print(f"  board : settle {res.get('settle')}, switches in run {res['switches']}")
         if a.target == 'board':
             w = m.get('windows', {})

@@ -15,6 +15,7 @@ import threading
 import time
 
 from . import paths  # noqa: F401  (puts fw/tools and sim on sys.path)
+from . import edge as edgelink
 import nav
 import proto
 
@@ -26,10 +27,15 @@ FIELDS = [
     'line', 'kind', 'seq', 'flag',
     't_scan_rx_ns', 't_flag_rx_ns', 't_uart_tx_ns', 't_c_rx_ns',
     'sim_time', 'x', 'y', 'yaw', 'wp_i', 'min_range', 'min_mm',
-    'local_v', 'local_w', 'edge_v', 'edge_w', 'edge_ok',
+    'local_v', 'local_w', 'edge_v', 'edge_w', 'edge_ok', 'edge_seq_used',
+    't_send_ns', 't_recv_ns', 'rtt_us', 'held', 'deadline_miss', 't_det_rtt_ns',
     'c_seq', 'v_out', 'w_out', 'mode', 'state', 'switch_us', 'n_sw', 'bad_lines', 'lost',
 ]
 C_FIELDS = ('v_out', 'w_out', 'mode', 'state', 'switch_us', 'n_sw', 'bad_lines')
+# Measured once per step by the edge link; a flag line repeats the command but must not
+# repeat the measurement, or the round trip would be counted twice.
+EDGE_MEASURED = ('t_send_ns', 't_recv_ns', 'rtt_us', 'held', 'deadline_miss',
+                 't_det_rtt_ns')
 
 
 def now_ns():
@@ -202,7 +208,8 @@ class Runner:
     """Stage B control step: waypoint follower on N1, safety rule and mode on N2.
 
     publish(v_mps, w_radps) sends /cmd_vel (or moves the dry-run robot).
-    policy decides the requested mode; edge supplies edge_v, edge_w (stub until B2)."""
+    policy decides the requested mode; edge is the N4 link of sim/bridge/edge.py, which
+    supplies the edge command and its round-trip columns (NoEdge for policy 1)."""
 
     def __init__(self, link, policy, edge, publish, waypoints=nav.WAYPOINTS,
                  run_limit_s=nav.RUN_LIMIT_S):
@@ -287,7 +294,8 @@ class Runner:
             e = dict(self.last)
             e.update({'kind': 'flag', 'flag': want, 't_scan_rx_ns': None,
                       't_flag_rx_ns': t_flag_rx_ns})
-            for k in ('line', 't_uart_tx_ns', 't_c_rx_ns', 'c_seq', 'lost') + C_FIELDS:
+            for k in ('line', 't_uart_tx_ns', 't_c_rx_ns', 'c_seq',
+                      'lost') + C_FIELDS + EDGE_MEASURED:
                 e.pop(k, None)
             self.link.send(e)
 
@@ -300,14 +308,14 @@ class Runner:
                 'x': f'{x:.4f}', 'y': f'{y:.4f}', 'yaw': f'{yaw:.4f}',
                 'wp_i': self.follower.wp_i, 'min_range': f'{min_range:.4f}',
                 'min_mm': proto.range_to_mm(min_range),
-                'local_v': local[0], 'local_w': local[1],
-                'edge_v': edge[0], 'edge_w': edge[1], 'edge_ok': int(edge[2])}, min_range
+                'local_v': local[0], 'local_w': local[1], **edge}, min_range
 
     def _send_settle(self, ranges, sim_time, t_scan_rx_ns):
         """One line before the run sets the board to the policy's starting mode with zero
         speed. Its switch (if any) is kept out of the run statistics."""
         self.clock['settle'] = clock_pair()
-        e, _ = self._entry('settle', 0, ranges, sim_time, t_scan_rx_ns, (0, 0), (0, 0, False))
+        e, _ = self._entry('settle', 0, ranges, sim_time, t_scan_rx_ns, (0, 0),
+                           {**edgelink.BLANK, 'edge_v': 0, 'edge_w': 0, 'edge_ok': 0})
         self.phase = 'settle'
         self.link.send(e)
 
@@ -341,7 +349,11 @@ class Runner:
         local = (int(round(v * 1000)), proto.rad_to_mrad(w))
         self.seq += 1
         self.flag = self.policy.flag_for_scan(self.flag)
-        edge = self.edge.command(self.seq)
+        # State out, freshest command in. The reply to this seq cannot be back yet; the
+        # command applied here answers an earlier step (sim/bridge/edge.py).
+        edge = self.edge.step(self.seq, int(round(x * 1000)), int(round(y * 1000)),
+                              proto.rad_to_mrad(yaw), proto.range_to_mm(min_range),
+                              self.follower.wp_i)
         e, _ = self._entry('scan', self.seq, ranges, sim_time, t_scan_rx_ns, local, edge)
         self.last = e
         self.link.send(e)

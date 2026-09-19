@@ -49,6 +49,7 @@ BRIDGE_SOURCES = ['sim/bridge/core.py', 'sim/bridge/policy.py', 'sim/bridge/summ
                   'sim/bridge/node.py', 'sim/bridge/run.py', 'sim/bridge/env.py',
                   'sim/bridge/paths.py', 'sim/nav.py', 'fw/tools/proto.py']
 NET_SOURCES = ['sim/bridge/netio.py']
+EDGE_SOURCES = ['sim/bridge/edge.py']
 WORLD = os.path.expanduser('~/tb3_ws/install/turtlebot3_gazebo/share/'
                            'turtlebot3_gazebo/worlds/a1_course.world')
 
@@ -191,7 +192,7 @@ def git_info():
 
 def code_info():
     return {'code_sha1': sha1_files(BRIDGE_SOURCES), 'net_sha1': sha1_files(NET_SOURCES),
-            'world_sha1': sha1_file(WORLD)}
+            'edge_sha1': sha1_files(EDGE_SOURCES), 'world_sha1': sha1_file(WORLD)}
 
 
 def main():

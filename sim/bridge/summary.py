@@ -14,6 +14,7 @@ PERIOD_MS = 50.0
 JITTER_P99_MS = 5.0     # B1 criterion (integrated plan 10.2): loop period jitter < 5 ms
 SKIP_MS = 75.0          # an interval this long means a whole scan went missing
 U_P99_MS = 5.0          # same bound as A3-7 (fw/NOTES.md)
+EDGE_DEADLINE_MS = 50.0  # one control period: a reply later than this missed its deadline
 SCAN_STEP_S = 0.05      # /scan header stamps advance by one LiDAR period (20 Hz)
 STATE_NAMES = {0: 'RUN', 1: 'SLOW', 2: 'STOP'}
 
@@ -112,6 +113,21 @@ def summarize(rows):
             out['bad_lines_delta'] = _i(answered[-1]['bad_lines']) - _i(s['bad_lines'])
             out['n_sw_delta'] = _i(answered[-1]['n_sw']) - _i(s['n_sw'])
 
+    # edge link, from the CSV alone: the round trip of each command the robot applied,
+    # and the steps that had none and reused the previous one (plan 4.2, decision D15).
+    rtt = [_f(r['rtt_us']) / 1000.0 for r in scan if r.get('rtt_us') not in ('', None)]
+    out.update(dist(rtt, 'rtt_ms'))
+    misses = sum(r.get('deadline_miss') == '1' for r in scan)
+    holds = sum(r.get('held') == '1' for r in scan)
+    out['deadline_misses'] = misses
+    out['holds'] = holds
+    out['miss_rate_steps'] = round(misses / len(scan), 4) if scan else None
+    out['hold_rate'] = round(holds / len(scan), 4) if scan else None
+    out['rtt_late'] = sum(x > EDGE_DEADLINE_MS for x in rtt)
+    ages = [int(r['seq']) - _i(r['edge_seq_used']) for r in scan
+            if r.get('edge_seq_used') not in ('', None)]
+    out.update(dist(ages, 'edge_age_steps', nd=1))
+
     # WDOG lines: during the run they are faults; the one after the last line is expected
     wd = [r for r in rows if r['kind'] == 'wdog']
     run_start = min((int(r['t_uart_tx_ns']) for r in run_lines), default=None)
@@ -123,6 +139,16 @@ def summarize(rows):
                               if after else None)
     out['bridge_stops'] = sum(r['kind'] == 'bridge_stop' for r in rows)
     return out
+
+
+def edge_figures(stats):
+    """The few edge-link numbers that belong next to the run figures. The full stats stay
+    in the meta file under 'edge'."""
+    if not stats or stats.get('edge') == 'none':
+        return {}
+    keep = ('sent', 'replied', 'late', 'unanswered', 'miss_rate', 'miss_rate_steps',
+            'holds', 'misses', 'rtt_ms_median', 'rtt_ms_p99', 'rtt_ms_max')
+    return {f'edge_{k}': stats.get(k) for k in keep}
 
 
 def main():
