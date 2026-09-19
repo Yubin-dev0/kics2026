@@ -6,6 +6,9 @@
 - `a1/run_N_meta.json` -- the exact configuration run N was executed with
 - `a2/`, `a3/` -- serial bench runs (see Bench stages)
 - `b1/run_N.csv`, `b1/run_N_meta.json` -- bridge driving runs (see Bridge stages)
+- `a10/` -- bridge driving runs over loopback with the edge controller (same files as
+  `b1/`, plus `edge_run_N.csv` from the N4 server, columns in `edge/README.md`)
+- `b3/`, `c1/`, `c3/` -- later bridge stages, same files as `b1/`
 
 ## runs.csv columns
 
@@ -75,9 +78,9 @@ waypoints, collisions, slow_steps, stop_steps, min_range_m) stay empty.
 Per-line data is in data/a2/run_N.csv; full results and the verdict are in run_N_meta.json.
 Board replays of A1 logs (data/a2/replay_N.json) are not ledger rows.
 
-## Bridge stages (B1)
+## Bridge stages (B1, A10, B3, C1, C3)
 
-Rows for B1 come from sim/bridge/node.py. Driving columns mean the same as for A1, with
+Rows for these stages come from sim/bridge/node.py (or sim/bridge/dry_run.py for loopback checks). Driving columns mean the same as for A1, with
 these differences:
 
 | column | bridge meaning |

@@ -8,8 +8,9 @@ and switching robot controllers accordingly. KICS 2026 Fall.
 |---|---|---|
 | `sim/` | N1 Gazebo simulation, A1 controller, world files, UART bridge (`sim/bridge/`) | Yubin |
 | `fw/` | STM32 safety controller firmware (A2) | Yubin |
-| `capture/` | N3 packet capture and feature extraction (A7) | Hyunbin |
-| `load/` | N5 competing-traffic generator (A8) | Hyunbin |
+| `edge/` | N4 edge controller UDP server (A10), runs on the lab PC | Yubin |
+| `capture/` | N3 packet capture and feature extraction (A7) | Yubin |
+| `load/` | N5 competing-traffic generator (A8) | Yubin |
 | `net/` | netem profiles, WireGuard configs | |
 | `analysis/` | aggregation scripts, figures | |
 | `data/` | run ledger and per-run logs -- start at `data/README.md` | |
@@ -23,6 +24,7 @@ and switching robot controllers accordingly. KICS 2026 Fall.
 - Filenames, paths, commit messages and docs are in English.
 
 ## Status
-A3 complete (runs 3-6, 2026-09-17). B1 bridge written and checked on the fake board;
-driving runs pending. See `sim/bridge/README.md`, `fw/NOTES.md`; A2 criteria in
-`fw/README.md`, A1 in `sim/NOTES.md`.
+A3 complete (runs 3-6, 2026-09-17). B1 bridge, N4 edge link, edge controller and
+policies 1-4 written and checked on the fake board over loopback (2026-09-20); B1 board
+runs and the A10 pass on the lab PC pending. See `sim/bridge/README.md`, `edge/README.md`,
+`fw/NOTES.md`; A2 criteria in `fw/README.md`, A1 in `sim/NOTES.md`.
