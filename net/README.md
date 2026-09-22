@@ -6,8 +6,8 @@ Ethernet, it captures headers (A7) and it adds the base RTT with netem (A6). N1 
 never know the network condition.
 
 Nothing is cloned onto N3. The scripts in `net/n3/` run from N1 over ssh
-(`ssh yubin@<N3> 'sudo bash -s' < net/n3/<script>.sh`), so the same files set up the Pi 4
-used now and the Pi 5 if it replaces it.
+(`ssh yubin@<N3> 'sudo bash -s' < net/n3/<script>.sh`), so the same files set up the Pi 5 (N3 from 2026-09-22)
+and the spare Pi 4 if it ever has to replace it.
 
 ## Layout
 
@@ -98,9 +98,10 @@ the tolerance is revisited with the A4 spread as evidence, not widened in advanc
 
 ## Known constraints
 
-- The Pi 4 in place now is temporary. A verdict belongs to the device that runs the sweep:
-  if the Pi 5 arrives by 9/24, the card moves to it and A4, A6 and A5 are run again with
-  the same scripts. From C1 (9/25) N3 is not changed.
+- N3 is the Pi 5 (received 2026-09-22); a rented Pi 4 is N5 and the other a spare. A
+  verdict belongs to the device that runs the sweep: if the Pi 5 fails before C1, the card
+  moves to the spare Pi 4 and A4, A6 and A5 are run again with the same scripts. From C1
+  (9/25) N3 is not changed.
 - While N1's Wi-Fi is on `kics-n3` it has no internet. Rejoin the school network to push.
 - N3 has no real-time clock and no internet after setup; its wall clock is only used
   through the per-run offset of A9.
