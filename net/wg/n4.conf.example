@@ -1,0 +1,11 @@
+# N4 (lab PC, Windows) side of the A5 tunnel. Copy to n4.conf, fill in the keys, import it
+# in the WireGuard app. Allow UDP 51820 inbound in Windows Defender (net/README.md).
+[Interface]
+PrivateKey = <N4 private key>
+Address = 10.99.0.4/24
+ListenPort = 51820
+
+[Peer]
+# N1 (laptop). No Endpoint: N1 starts the tunnel, N4 answers where it came from
+PublicKey = <N1 public key>
+AllowedIPs = 10.99.0.1/32

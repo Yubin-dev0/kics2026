@@ -11,7 +11,7 @@ and switching robot controllers accordingly. KICS 2026 Fall.
 | `edge/` | N4 edge controller UDP server (A10), runs on the lab PC | Yubin |
 | `capture/` | N3 packet capture and feature extraction (A7) | Yubin |
 | `load/` | N5 competing-traffic generator (A8) | Yubin |
-| `net/` | netem profiles, WireGuard configs | |
+| `net/` | N3 access point, netem and WireGuard: scripts run on N3 over ssh, A4/A6 ping runs (start at `net/README.md`) | Yubin |
 | `analysis/` | aggregation scripts, figures | |
 | `data/` | run ledger and per-run logs -- start at `data/README.md` | |
 

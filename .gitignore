@@ -7,3 +7,6 @@ __pycache__/
 *.pcapng
 data/raw/
 analysis/out/
+
+# WireGuard configs with keys (net/wg/*.conf.example are the templates)
+net/wg/*.conf

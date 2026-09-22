@@ -1,0 +1,15 @@
+# N1 (laptop, Windows) side of the A5 tunnel. Copy to n1.conf, fill in the keys, and import
+# it in the WireGuard app ("Import tunnel(s) from file"). n1.conf is git-ignored: keys
+# never enter the repository.
+[Interface]
+PrivateKey = <N1 private key>
+Address = 10.99.0.1/24
+
+[Peer]
+# N4 (lab PC), reached through N3 (NAT on N3 eth0)
+PublicKey = <N4 public key>
+Endpoint = 192.168.50.4:51820
+# Tunnel subnet only: the robot flow to 10.99.0.4 goes in, nothing else changes route
+AllowedIPs = 10.99.0.0/24
+# Keeps N3's NAT entry alive between runs; during a run the 20 Hz traffic does it
+PersistentKeepalive = 25
