@@ -28,7 +28,8 @@ def add_args(ap):
     ap.add_argument('--baud', type=int, default=921600)
     ap.add_argument('--busid', default='1-3')
     ap.add_argument('--out', default=None, help='output folder (default data/<stage>)')
-    ap.add_argument('--n3', default=None, help='N3 address for policy 4 flags')
+    ap.add_argument('--n3', default=None,
+                    help='N3 address: keepalive to the detector (every sweep run), flags back (policy 4 acts)')
     ap.add_argument('--edge', default=None, metavar='HOST[:PORT]',
                     help=f'N4 edge controller, default port {edgelink.EDGE_PORT}; '
                          'policies 2 and 4 need it')
@@ -132,7 +133,10 @@ class Session:
         self.meta['waypoints'] = self.runner.follower.waypoints
         self.link.start()
         self.t_ready = time.monotonic()
-        if args.policy == 4:
+        # every run given --n3 keeps the keepalive up: the N3 detector marks the run start
+        # on its first keepalive and starts the load at t0 (capture/README.md), and the
+        # flags it sends are counted by every policy and acted on by policy 4 only
+        if args.n3:
             self.flags = netio.FlagListener(args.n3, self.runner.on_flag)
             self.flags.start()
 

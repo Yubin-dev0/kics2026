@@ -301,8 +301,10 @@ steady test delay of 200 ms: GOAL, no collision, no STOP step, commands 5 steps 
 - A steady added delay produces almost no held steps even at 200 ms, because replies keep
   arriving one per period; what grows is their age. Read `deadline_miss` for the paper's
   M and `held` for link outages.
-- The flag datagram format in `netio.py` and port 47100 are provisional until agreed with
-  the N3 detector owner. The keepalive path through WSL2 NAT is tested at A4.
+- The flag datagram format in `netio.py` and port 47100 are what the N3 detector
+  (`capture/detector.py`) sends and answers; the keepalive goes out in every run given
+  `--n3`, whatever the policy, because the detector marks the run start on it and starts
+  the load at t0. The keepalive path through WSL2 NAT is tested at A4.
 - Power facts come from WSL interop (PowerShell). The overlay GUID mapping in `env.py`
   is checked on the first board run; if interop fails, `--power-confirmed` records a manual
   check.

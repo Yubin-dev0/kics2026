@@ -19,6 +19,9 @@
 - `a4/`, `a6/` -- N3 round-trip runs (`net/ping_run.py`): run_N.log, the raw `ping -D`
   output, and run_N_meta.json (`harness` = ping); `a4/n3_state_<device>.txt` is the N3
   snapshot the A4 verdict belongs to (`net/n3/state.sh`)
+- `<stage>/n3_run_N_windows.csv`, `n3_run_N_flags.csv`, `n3_run_N_meta.json` -- the N3
+  detector's files of bridge run N (`capture/fetch.sh`; columns in `capture/README.md`).
+  The pcap stays on N3
 
 ## runs.csv columns
 
