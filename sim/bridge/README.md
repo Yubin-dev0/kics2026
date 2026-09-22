@@ -224,9 +224,15 @@ lines.
 
 ## A10 pass criteria (edge controller, plan 7.3)
 
-Measured from N1 against the real N4 (lab PC over the N3 path once A4 is up; before that,
-over Wi-Fi or the direct cable), never on loopback:
-`python3 -m bridge.test_edge --probe <N4 address>:47000 --count 1000`.
+Measured from N1 against the real N4, never on loopback, and registered like any run:
+
+    python3 -m bridge.test_edge --probe 192.168.50.4:47000 --run 1 --path direct
+    python3 analysis/append_run.py A10 1
+
+`--path` names how N1 reached N4: `direct` (USB-LAN cable, before A4), `n3` (through the
+AP), `tunnel` (WireGuard, stage A5 with `--stage A5`). The probe writes
+data/a10/run_N.csv (one row per datagram) and run_N_meta.json, and at the end asks for the
+N4 server's `proc p99` figure (A10-3); a run without it is not a pass.
 
 | ID | criterion | basis | status |
 |---|---|---|---|

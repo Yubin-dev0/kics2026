@@ -15,13 +15,20 @@ and as the A10 probe against a running edge/server.py (pass: p99 < 10 ms, 1000 r
 none unanswered; plan 7.3):
 
   python3 -m bridge.test_edge --probe 127.0.0.1:47000 --count 1000
+
+and, registered, against the real N4 (sim/bridge/README.md, A10):
+
+  python3 -m bridge.test_edge --probe 192.168.50.4:47000 --run 1 --path direct
 """
 import argparse
+import csv
 import importlib.util
 import random
 import socket
+import sys
 import threading
 import time
+from pathlib import Path
 
 from . import edge as edgelink, rttwatch
 from .paths import REPO
@@ -386,11 +393,41 @@ def check_watcher():
 
 def probe():
     """A10 measurement from N1 against a running edge/server.py: 20 Hz states for --count
-    steps, then the round-trip figures and the unanswered count."""
+    steps, then the round-trip figures and the unanswered count. With --run it is a
+    registered run like every other stage: data/<stage>/run_N.csv (one row per datagram)
+    and run_N_meta.json (path, figures, verdict), then analysis/append_run.py."""
+    import datetime as dt
+    import json
+    from . import env
+
     ap = argparse.ArgumentParser(description='A10 probe of the N4 controller.')
     ap.add_argument('--probe', required=True, metavar='HOST[:PORT]')
     ap.add_argument('--count', type=int, default=1000)
+    ap.add_argument('--run', type=int, default=None, help='write data/<stage>/run_N.*')
+    ap.add_argument('--stage', default='A10', choices=('A10', 'A5'),
+                    help='A5 for the same probe through the WireGuard tunnel')
+    ap.add_argument('--path', default=None,
+                    help='how N1 reached N4: direct (USB-LAN cable), n3 (through the AP), '
+                         'tunnel (WireGuard); required with --run')
+    ap.add_argument('--server-proc-p99-us', type=float, default=None,
+                    help='A10-3: proc p99 from the N4 window (asked for if not given)')
+    ap.add_argument('--busid', default='2-3')
+    ap.add_argument('--out', default=None)
+    ap.add_argument('--note', default='')
     args = ap.parse_args()
+    if args.run is not None and not args.path:
+        ap.error('--run needs --path (direct, n3 or tunnel)')
+    csv_path = meta_path = None
+    if args.run is not None:
+        out = Path(args.out) if args.out else REPO / 'data' / args.stage.lower()
+        out.mkdir(parents=True, exist_ok=True)
+        csv_path, meta_path = out / f'run_{args.run}.csv', out / f'run_{args.run}_meta.json'
+        if csv_path.exists() or meta_path.exists():
+            raise SystemExit(f'{csv_path.name} already exists. Pick another --run.')
+        started = dt.datetime.now().astimezone().isoformat(timespec='seconds')
+        commit, dirty = env.git_info()
+        windows, env_errors = env.windows_facts(args.busid)
+
     client = edgelink.make(args.probe)
     client.start()
     t = time.monotonic()
@@ -403,9 +440,43 @@ def probe():
           f"max {st.get('rtt_ms_max')} ms; replied {st['replied']}/{st['sent']}, "
           f"unanswered {st['unanswered']}, bad {st['bad']}, echo mismatch {st['echo_mismatch']}, "
           f"holds {st['holds']}, M {st['miss_rate_steps']}")
-    passed = (st['replied'] == args.count and st['unanswered'] == 0 and st['bad'] == 0
-              and st.get('rtt_ms_p99', 1e9) < 10.0)
-    print('A10 PASS' if passed else 'A10 FAIL', '(p99 < 10 ms, none unanswered)')
+    verdict = {
+        'a10_1_rtt_p99': st.get('rtt_ms_p99', 1e9) < 10.0,
+        'a10_2_all_answered': (st['replied'] == args.count and st['unanswered'] == 0
+                               and st['bad'] == 0 and st['echo_mismatch'] == 0),
+    }
+    proc = args.server_proc_p99_us
+    if proc is None and args.run is not None and sys.stdin.isatty():
+        ans = input('N4 window, last "proc p99 ... us" figure (Enter to leave it out): ').strip()
+        proc = float(ans) if ans else None
+    verdict['a10_3_server_proc'] = None if proc is None else proc < 1000.0
+    passed = all(v for v in verdict.values() if v is not None) and proc is not None
+    if not passed and proc is None:
+        print('  A10-3 not recorded: the run is not a pass without the N4 proc figure')
+
+    if args.run is not None:
+        with open(csv_path, 'w', newline='') as f:
+            w = csv.writer(f)
+            w.writerow(['seq', 't_send_ns', 't_recv_ns', 'rtt_us'])
+            got = {seq: t_r for seq, _, t_r in client.replies}
+            for seq in sorted(client.sent):
+                t_s, t_r = client.sent[seq], got.get(seq)
+                w.writerow([seq, t_s, '' if t_r is None else t_r,
+                            '' if t_r is None else (t_r - t_s) // 1000])
+        meta = {'run_id': str(args.run), 'stage': args.stage, 'harness': 'probe',
+                'started': started,
+                'finished': dt.datetime.now().astimezone().isoformat(timespec='seconds'),
+                'target': st['target'], 'path': args.path, 'count': args.count,
+                'git': commit, 'git_dirty': dirty, **env.code_info(),
+                'windows': windows, 'env_errors': env_errors,
+                'edge': st, 'server_proc_p99_us': proc,
+                'verdict': verdict, 'pass': passed, 'note': args.note}
+        meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False) + '\n')
+        print(f"  verdict {verdict}")
+        print(f"\n{'PASS' if passed else 'FAIL'} -> {csv_path}, {meta_path.name}")
+        print(f'register: python3 analysis/append_run.py {args.stage} {args.run}')
+    else:
+        print('A10 PASS' if passed else 'A10 FAIL', '(p99 < 10 ms, none unanswered, proc < 1 ms)')
     raise SystemExit(0 if passed else 1)
 
 
@@ -432,5 +503,4 @@ def serve():
 
 
 if __name__ == '__main__':
-    import sys
     (serve if '--serve' in sys.argv else probe if '--probe' in sys.argv else main)()

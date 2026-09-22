@@ -11,12 +11,25 @@ WSL2, loopback check with the fake board (see `sim/bridge/README.md`):
 
     python3 edge/server.py --listen 127.0.0.1:47000 --log /tmp/a10/edge_run_1.csv
 
-Lab PC (Windows 11, `py` launcher, clone at `C:\dev\kics2026`):
+Lab PC (Windows 11, `py` launcher). The lab PC only reads the repository, so it clones
+over HTTPS without a key, and `git log -1` there names the commit the server ran:
 
-    py edge\server.py --listen 0.0.0.0:47000 --log data\a10\edge_run_1.csv
+    git clone https://github.com/Yubin-dev0/kics2026 C:\dev\kics2026
+    py edge\server.py --listen 0.0.0.0:47000
 
-Windows Defender asks once to allow Python on private networks; UDP 47000 inbound must be
-allowed for the N3 side. The N1 bridge then runs with `--edge <N4 address>`.
+Before the first run, in an administrator PowerShell, allow the edge port (and ping, for
+A6) on every network profile, since the USB-LAN adapter and the tunnel come up as
+unidentified public networks:
+
+    New-NetFirewallRule -DisplayName "kics2026 edge UDP 47000" -Direction Inbound -Protocol UDP -LocalPort 47000 -Action Allow -Profile Any
+    New-NetFirewallRule -DisplayName "kics2026 ping" -Direction Inbound -Protocol ICMPv4 -IcmpType 8 -Action Allow -Profile Any
+
+If Windows also shows its own prompt for Python, allow it. Cancelling it creates a block
+rule for python.exe, and a block rule wins over the port rule.
+
+Restart the server before each A10 probe run: its periodic line (`proc p99 ... us`) then
+covers exactly that run's datagrams, and the probe asks for that figure at the end (A10-3).
+The N1 bridge then runs with `--edge <N4 address>`; the addresses are in `net/README.md`.
 
 Options: `--rule a1|none` (edge-side speed rule, below), `--log` (per-datagram CSV),
 `--stats-every S`, `--quit-after S`; test delays `--delay-ms`, `--extra-ms`,
