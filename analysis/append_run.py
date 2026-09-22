@@ -15,6 +15,12 @@ Stages:
             one row per line and run_N_meta.json with results and verdict.
             The ledger columns stay the same as for A1; bench figures go into
             'result' (PASS / FAIL / ABORTED) and a compact 'note'.
+  A4, A6    N3 round-trip runs (net/ping_run.py): data/a4 or data/a6, run_N.log (raw ping)
+            and run_N_meta.json. Median, p99, loss, gaps and the set base RTT go into
+            'note'; 'result' is PASS / FAIL.
+  A10, A5   edge probes (python3 -m bridge.test_edge --probe ... --run N): run_N.csv with
+            one row per datagram and run_N_meta.json. A5 is the same probe through the
+            WireGuard tunnel. The path, round trip and N4 process time go into 'note'.
   B1, A10, B3, C1, C3
             bridge driving runs (sim/bridge/node.py, sim/bridge/dry_run.py): data/<stage>/
             run_N.csv with one row per UART line and run_N_meta.json with results and
@@ -218,6 +224,55 @@ def bridge_row(run_id, stage, meta):
     }
 
 
+def _status(meta):
+    passed = bool(meta.get('pass'))
+    return ('check' if meta.get('git_dirty') else 'valid') if passed else 'discarded'
+
+
+def ping_row(run_id, stage, meta):
+    """A4 / A6: net/ping_run.py."""
+    r = meta.get('results', {})
+    parts = [f"-> {meta.get('target')}", f"{r.get('received')}/{r.get('sent')} replies",
+             f"median {r.get('rtt_ms_median')} p99 {r.get('rtt_ms_p99')} "
+             f"max {r.get('rtt_ms_max')} ms", f"loss {r.get('loss_pct')}%",
+             f"longest gap {r.get('longest_gap_s')} s", f"gaps>=150ms {r.get('gaps_ge_150ms')}"]
+    if meta.get('set_ms') is not None:
+        parts.append(f"set {meta['set_ms']} ms" + (
+            f" added {r.get('added_ms')} ms ({r.get('added_error_pct'):+}%)"
+            if r.get('added_ms') is not None else ' (reference)'))
+    failed = [k for k, v in (meta.get('verdict') or {}).items() if not v]
+    if failed:
+        parts.append('failed ' + '/'.join(failed))
+    if meta.get('aborted'):
+        parts.append(f"aborted: {meta['aborted']}")
+    return {'run_id': run_id, 'stage': stage, 'date': meta['started'][:10],
+            'node': 'N1+N3' if stage == 'A4' else 'N1+N3+N4', 'git': git_label(meta),
+            'result': 'PASS' if meta.get('pass') else 'FAIL', 'status': _status(meta),
+            'note': ('PASS; ' if meta.get('pass') else 'FAIL; ') + '; '.join(parts)}
+
+
+def probe_row(run_id, stage, meta):
+    """A10 / A5: bridge.test_edge --probe."""
+    e = meta.get('edge', {})
+    parts = [f"path {meta.get('path')} -> {meta.get('target')}",
+             f"{e.get('replied')}/{meta.get('count')} answered",
+             f"rtt med {e.get('rtt_ms_median')} p99 {e.get('rtt_ms_p99')} "
+             f"max {e.get('rtt_ms_max')} ms",
+             f"bad {e.get('bad')} echo mismatch {e.get('echo_mismatch')}",
+             f"N4 proc p99 {meta.get('server_proc_p99_us')} us"]
+    w = meta.get('windows') or {}
+    parts.append(f"power {w.get('power_mode_ac')} ac {w.get('on_ac_power')}")
+    failed = [k for k, v in (meta.get('verdict') or {}).items() if v is False]
+    if failed:
+        parts.append('failed ' + '/'.join(failed))
+    node = {'direct': 'N1+N4', 'n3': 'N1+N3+N4', 'tunnel': 'N1+N3+N4'}.get(meta.get('path'),
+                                                                        'N1+N4')
+    return {'run_id': run_id, 'stage': stage, 'date': meta['started'][:10], 'node': node,
+            'git': git_label(meta), 'result': 'PASS' if meta.get('pass') else 'FAIL',
+            'status': _status(meta),
+            'note': ('PASS; ' if meta.get('pass') else 'FAIL; ') + '; '.join(parts)}
+
+
 def already_listed(stage, run_id):
     if not os.path.exists(LEDGER):
         return False
@@ -247,7 +302,11 @@ def main():
     if os.path.exists(meta_path):
         with open(meta_path) as f:
             meta = json.load(f)
-        if stage in BENCH_STAGES:
+        if meta.get('harness') == 'ping':
+            row.update(ping_row(run_id, stage, meta))
+        elif meta.get('harness') == 'probe':
+            row.update(probe_row(run_id, stage, meta))
+        elif stage in BENCH_STAGES:
             row.update(bench_row(run_id, stage, meta))
         elif stage in BRIDGE_STAGES:
             row.update(bridge_row(run_id, stage, meta))
@@ -273,7 +332,7 @@ def main():
             w.writeheader()
         w.writerow(row)
 
-    if stage in BENCH_STAGES + BRIDGE_STAGES:
+    if row.get('result') or stage in BENCH_STAGES + BRIDGE_STAGES:
         print(f'appended {stage} run {run_id}: {row["result"]} {row["status"]} | {row["note"]}')
     else:
         print(f'appended run {run_id}: SLOW={row["slow_steps"]} '

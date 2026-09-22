@@ -13,6 +13,12 @@
 - `a10/` -- bridge driving runs over loopback with the edge controller (same files as
   `b1/`, plus `edge_run_N.csv` from the N4 server, columns in `edge/README.md`)
 - `b3/`, `c1/`, `c3/` -- later bridge stages, same files as `b1/`
+- `a10/`, `a5/` also hold edge probe runs (`bridge.test_edge --probe --run N`): run_N.csv
+  with one row per datagram (seq, t_send_ns, t_recv_ns, rtt_us, empty when unanswered)
+  and run_N_meta.json with the path, figures and verdict (`harness` = probe)
+- `a4/`, `a6/` -- N3 round-trip runs (`net/ping_run.py`): run_N.log, the raw `ping -D`
+  output, and run_N_meta.json (`harness` = ping); `a4/n3_state_<device>.txt` is the N3
+  snapshot the A4 verdict belongs to (`net/n3/state.sh`)
 
 ## runs.csv columns
 
