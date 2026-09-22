@@ -19,6 +19,7 @@ and the spare Pi 4 if it ever has to replace it.
 | `n3/netem.sh` | base RTT: half on wlan0 egress, half on eth0 egress; `off`, `show` |
 | `n3/state.sh` | snapshot of board, OS, Wi-Fi, profiles, qdiscs, packages |
 | `ping_run.py` | A4, A6 and A8 runs from N1: raw ping log, figures, verdict, meta file; A8 triggers the N5 load mid-run |
+| `clock_offset.py` | A9: N1 to N3 clock offset delta, echo side piped to N3, 100 exchanges from N1, one file per sweep run |
 | `../analysis/watch_replay.py` | replays the policy 3 watcher over probe runs (A5-3b) |
 | `wg/n1.conf.example`, `wg/n4.conf.example` | A5 tunnel templates (real `*.conf` files are git-ignored) |
 
@@ -164,6 +165,18 @@ on.
 
 A8 runs with `ping_run.py --stage A8` and the N5 agent; criteria and parameters are in
 `load/README.md`. A7 is `capture/README.md`.
+
+### A9 (clock offset)
+
+| ID | criterion | basis | status |
+|---|---|---|---|
+| A9-1 | 100 UDP exchanges N1 to N3 (`clock_offset.py`), standard deviation of the per-exchange offset under 1 ms | plan v5 7.3 | pending |
+| A9-2 | one `clock_run_N.json` next to every sweep run, taken right before it | the Pi 5 has no RTC; D and B both carry delta, so a stale delta moves both | pending, C1 |
+
+delta = ((t2 - t1) + (t3 - t4)) / 2 per exchange (NTP), median over the exchanges;
+N1 wall + delta = N3 wall. The file also keeps the median over the quarter of exchanges
+with the shortest round trips, which bounds the offset best; if the two medians differ by
+more than the sd, the Wi-Fi was asymmetric during the measurement and the run is `check`.
 
 ## Known constraints
 

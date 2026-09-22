@@ -25,6 +25,9 @@
 - `<stage>/n3_run_N_windows.csv`, `n3_run_N_flags.csv`, `n3_run_N_meta.json` -- the N3
   detector's files of bridge run N (`capture/fetch.sh`; columns in `capture/README.md`).
   The pcap stays on N3
+- `<stage>/clock_run_N.json` -- the N1 to N3 clock offset taken before run N
+  (`net/clock_offset.py`); `results.delta_ns` is what `sweep.csv` `delta_ms` comes from
+- `a9/` -- clock offset runs of A9 itself
 
 ## runs.csv columns
 
@@ -60,9 +63,9 @@ not applicable to that run or has not been merged yet.
 | rep | - | repetition number of this condition, 1 to 3 |
 | status | - | valid / check / discarded, as in `runs.csv`; only valid is cited |
 | result | - | GOAL or TIMEOUT |
-| a_ms | ms | metadata detection after t0 (N3 clock). From the C3 merge |
-| d_ms | ms | RTT window detection after t0 (N1 clock plus the A9 offset). From the C3 merge |
-| b_ms | ms | flag from N3 detection to the S line on N1. Policy 4 runs only |
+| a_ms | ms | metadata detection after t0 (N3 clock): `n3_run_N_meta.json` |
+| d_ms | ms | RTT window detection after t0 (N1 clock plus delta): N1 meta `rtt_watch.t_det_rtt_ns`, `clock_run_N.json` |
+| b_ms | ms | flag from its departure on N3 to the S line that carries it leaving N1 (`t_uart_tx_ns` of the first local flag line, plus delta, minus `t_det_meta_ns`). Policy 4 runs only |
 | u_ms | ms | USB path to the board, the A3 constant (3.5 ms p99 idle), not per run |
 | c_ms | ms | board mode switch, the run's median `switch_us` converted to ms |
 | g_ms | ms | D - (A + B + U + C), what is left of the head start. Policy 4 runs only |
@@ -74,7 +77,7 @@ not applicable to that run or has not been merged yet.
 | edge_stop_steps | - | steps in edge mode where the safety rule would have stopped the robot; the fallback y axis of figure 2(b) (D19) |
 | local_steps | - | steps the board actually spent in local mode |
 | duration_s, min_range_m | s, m | run length in simulation time, closest approach |
-| delta_ms | ms | N1 to N3 clock offset used for this run (A9). From the C3 merge |
+| delta_ms | ms | N1 to N3 clock offset used for this run (A9): `clock_run_N.json` |
 | git, note | - | commit the run was executed at; free text |
 
 ## a1/run_N.csv columns

@@ -11,11 +11,18 @@ the run was executed under and the figures derived from it.
   python3 analysis/sweep_index.py --check data/synthetic/sweep.csv
 
 Where the columns come from. The N1 side (everything the bridge already writes) is filled
-by this script from run_N_meta.json. The N3 side (a_ms, the clock offset delta_ms, and
-therefore d_ms, b_ms and g_ms, which are measured from t0 on N3's clock) is filled by the
-C3 merge on 2026-09-26, when the N3 logs exist; until then those cells are empty in real
-data. The synthetic set (analysis/make_synthetic.py) fills every column so the figure
-scripts can be finished before the sweep runs.
+from run_N_meta.json. The N3 side is filled when the two other files of the run are in the
+same folder: n3_run_N_meta.json (capture/fetch.sh: t0_ns and t_det_meta_ns on N3's clock)
+and clock_run_N.json (net/clock_offset.py: delta_ns, N3 minus N1). Then
+  a_ms     = (t_det_meta_ns - t0_ns) / 1e6                          both N3
+  d_ms     = (wall_n1(t_det_rtt_ns) + delta_ns - t0_ns) / 1e6       N1 watcher, put on N3's clock
+  b_ms     = (wall_n1(t_uart_tx_ns of the first local flag line) + delta_ns - t_det_meta_ns) / 1e6
+             policy 4 runs only: from the flag's departure on N3 to the S line that carries it
+             leaving N1 (plan v5 4.5)
+  g_ms     = d - (a + b + u + c)                                    policy 4 runs only
+wall_n1(mono) uses the run's start clock pair (sim/bridge/core.py clock_pair). Cells stay
+empty while a file is missing. The synthetic set (analysis/make_synthetic.py) fills every
+column so the figure scripts can be finished before the sweep runs.
 
 Reading the timing chain (plan 4.5): A is when the metadata detector saw the degradation,
 D is when the RTT window saw it, both measured from t0, the moment N3 started the load.
@@ -50,12 +57,59 @@ POLICIES = (1, 2, 3, 4)
 U_MS_A3 = 3.5          # A3 p99, idle (fw/NOTES.md); the C3 merge may use 2.8 under load
 
 
-def row_from_meta(meta):
-    """One sweep row from an N1 run meta file. N3 columns are left empty."""
+def n1_wall(meta, mono_ns):
+    """Puts an N1 monotonic stamp on N1's wall clock with the run's start clock pair."""
+    cp = (meta.get('clock_pairs') or {}).get('start')
+    if not cp or mono_ns is None:
+        return None
+    return cp['wall_ns'] + (mono_ns - cp['mono_ns'])
+
+
+def first_local_flag_line(csv_path):
+    """t_uart_tx_ns and t_det_meta_ns of the first flag line asking for local (policy 4)."""
+    try:
+        with open(csv_path, newline='') as f:
+            for r in csv.DictReader(f):
+                if r.get('kind') == 'flag' and r.get('flag') == '1' and r.get('t_uart_tx_ns'):
+                    return int(r['t_uart_tx_ns']), (int(r['t_det_meta_ns']) if r.get('t_det_meta_ns') else None)
+    except OSError:
+        pass
+    return None, None
+
+
+def n3_columns(meta, meta_path):
+    """a_ms, d_ms, b_ms, g_ms, delta_ms from the N3 and clock files next to the N1 meta."""
+    d = meta_path.parent
+    run = meta.get('run_id')
+    out = {'a_ms': None, 'd_ms': None, 'b_ms': None, 'g_ms': None, 'delta_ms': None}
+    n3p, ckp = d / f'n3_run_{run}_meta.json', d / f'clock_run_{run}.json'
+    n3 = json.loads(n3p.read_text()) if n3p.exists() else None
+    ck = json.loads(ckp.read_text()) if ckp.exists() else None
+    if n3 and n3.get('t0_ns') and n3.get('t_det_meta_ns'):
+        out['a_ms'] = round((n3['t_det_meta_ns'] - n3['t0_ns']) / 1e6, 3)
+    if ck:
+        delta = ck['results']['delta_ns']
+        out['delta_ms'] = round(delta / 1e6, 3)
+        if n3 and n3.get('t0_ns'):
+            w = n1_wall(meta, (meta.get('rtt_watch') or {}).get('t_det_rtt_ns'))
+            if w is not None:
+                out['d_ms'] = round((w + delta - n3['t0_ns']) / 1e6, 3)
+            if meta.get('policy') == 4 and n3.get('t_det_meta_ns'):
+                tx, det = first_local_flag_line(d / f'run_{run}.csv')
+                w = n1_wall(meta, tx)
+                if w is not None and (det is None or det == n3['t_det_meta_ns']):
+                    out['b_ms'] = round((w + delta - n3['t_det_meta_ns']) / 1e6, 3)
+    return out
+
+
+def row_from_meta(meta, meta_path=None):
+    """One sweep row from an N1 run meta file, plus the N3 columns when the N3 and clock
+    files of the run sit next to it."""
     r = meta.get('results', {})
     cond = meta.get('condition') or {}
     c_us = r.get('switch_us_median')
-    return {
+    n3 = n3_columns(meta, meta_path) if meta_path else {}
+    row = {
         'run_id': meta.get('run_id'),
         'stage': meta.get('stage'),
         'date': (meta.get('started') or '')[:10],
@@ -84,6 +138,12 @@ def row_from_meta(meta):
         'git': meta.get('git', '') + ('-DIRTY' if meta.get('git_dirty') else ''),
         'note': meta.get('note', ''),
     }
+    row.update(n3)
+    chain = [row[k] for k in ('a_ms', 'b_ms', 'u_ms', 'c_ms', 'd_ms')]
+    if all(v is not None for v in chain):
+        a, b, u, c, dd = chain
+        row['g_ms'] = round(dd - (a + b + u + c), 3)
+    return row
 
 
 def build(stages, out_path):
@@ -92,7 +152,18 @@ def build(stages, out_path):
         d = REPO / 'data' / stage.lower()
         for meta_path in sorted(d.glob('run_*_meta.json'),
                                 key=lambda p: int(p.name.split('_')[1])):
-            rows.append(row_from_meta(json.loads(meta_path.read_text())))
+            meta = json.loads(meta_path.read_text())
+            row = row_from_meta(meta, meta_path)
+            rows.append(row)
+            n3p = meta_path.parent / f"n3_run_{meta.get('run_id')}_meta.json"
+            if n3p.exists() and row.get('delta_ms') is not None:
+                n3 = json.loads(n3p.read_text())
+                cp = (meta.get('clock_pairs') or {}).get('start')
+                if n3.get('t0_ns') and cp:
+                    t0_n1 = (n3['t0_ns'] - int(row['delta_ms'] * 1e6) - cp['wall_ns']) / 1e9
+                    print(f"  {stage} run {meta.get('run_id')}: t0 at {t0_n1:.2f} s of the N1 run "
+                          f"(must be past the 15 s RTT baseline), a {row['a_ms']} d {row['d_ms']} "
+                          f"b {row['b_ms']} g {row['g_ms']} ms")
     write(rows, out_path)
     print(f'{len(rows)} rows -> {out_path}')
     return rows
