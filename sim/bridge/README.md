@@ -244,11 +244,31 @@ N4 server's `proc p99` figure (A10-3); a run without it is not a pass.
 
 | ID | criterion | basis | status |
 |---|---|---|---|
-| A10-1 | Round trip p99 < 10 ms over 1000 states at 20 Hz | plan 7.3 | provisional |
-| A10-2 | 1000 of 1000 answered, no bad or echo-mismatched reply | plan 7.3 | provisional |
-| A10-3 | Server process time p99 < 1 ms (`proc_us` in the server log) | the controller must not be a visible share of the 50 ms period | provisional |
+| A10-1 | Round trip p99 < 10 ms over 1000 states at 20 Hz | plan 7.3; a bar for the server alone, on the direct cable | pass 9/22, run 2: 5.031 ms |
+| A10-2 | 1000 of 1000 answered, no bad or echo-mismatched reply | plan 7.3 | pass 9/22, run 2 |
+| A10-3 | Server process time p99 < 1 ms (`proc_us` in the server log) | the controller must not be a visible share of the 50 ms period | pass 9/22, run 2: 705 us |
 | A10-4 | Policy 2 completes the A1 course with the fake board on loopback (GOAL, 5/5) | the controller drives the course before any network is added | confirmed 9/20, dry run (follower) |
 | A10-5 | With the MLP controller: A10-4 with no collision and a course time within 5% of the follower's | the learned controller must not change what policy 2 does at zero delay; 5% is provisional | confirmed 9/22, dry run: MLP 44.2 s, follower (rule none) 44.15 s, both min 0.26-0.27 m |
+
+Lab runs of 2026-09-22 (N4 = lab PC, Windows, Python 3.12.10, MLP controller, weights
+`fe670ccebaf6`; the server was restarted for every run):
+
+| run | path | round trip median / p99 / max (ms) | answered | N4 proc p99 | verdict |
+|---|---|---|---|---|---|
+| 1 | direct | 4.578 / 5.726 / 11.411 | 1000/1000 | not usable | void, not registered |
+| 2 | direct | 4.145 / 5.031 / 21.875 | 1000/1000 | 705 us | PASS (the A10 verdict) |
+| 3 | N1 Wi-Fi, N3, NAT | 6.899 / 9.478 / 13.337 | 1000/1000 | 805 us | PASS |
+
+Run 1 is void because the server then timed `proc_us` with `time.monotonic`, which on
+Windows ticks every 15.6 ms: it read 0 or about 16000 us. Since f57fc5b the server uses
+`perf_counter_ns`. The same commit marks `edge/mlp_weights.json` as binary in
+`.gitattributes`: Git for Windows had checked it out with CRLF, and the server printed the
+SHA-1 `aacbf116f8fc` for the same weights. The margins are narrow in two places: run 3
+leaves 0.5 ms to the A10-1 bar, and the process time is 70-80% of the A10-3 bar, most of
+it the Windows socket calls (the MLP forward pass alone is about 45 us). Run 2's meta file
+has no Windows power facts (WSL interop was off; see `net/README.md`). Ping on the direct
+cable: 2-3 ms from Windows, 4.08 ms mean from WSL. The tunnel path (stage A5) is judged
+in `net/README.md`.
 
 Loopback checks of 9/20 (dry run, fake board, `edge/server.py`, WSL2 loopback; ideal
 kinematics, so the distances are not A1 figures): policy 2 GOAL 47.95 s, 959 states,

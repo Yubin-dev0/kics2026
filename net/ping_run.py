@@ -114,9 +114,16 @@ def _cmd_text(cmd, timeout=20.0, encoding='utf-8'):
         out = subprocess.run(cmd, capture_output=True, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as e:
         return f'{type(e).__name__}: {e}'
-    text = out.stdout.decode(encoding, 'replace')
+    def dec(b):
+        if encoding:
+            return b.decode(encoding, 'replace')
+        try:
+            return b.decode('utf-8')
+        except UnicodeDecodeError:
+            return b.decode('cp949', 'replace')
+    text = dec(out.stdout)
     if out.returncode:
-        text += out.stderr.decode(encoding, 'replace')
+        text += dec(out.stderr)
     return text
 
 
@@ -126,13 +133,18 @@ def wifi_facts():
     netsh = shutil.which('netsh.exe') or '/mnt/c/Windows/System32/netsh.exe'
     if not os.path.exists(netsh) and not shutil.which('netsh.exe'):
         return None
-    text = _cmd_text([netsh, 'wlan', 'show', 'interfaces'], encoding='cp949')
+    # netsh prints UTF-8 when Windows runs with the UTF-8 code page and CP949 otherwise;
+    # the 9/22 A4 meta file shows UTF-8 read as CP949
+    text = _cmd_text([netsh, 'wlan', 'show', 'interfaces'], encoding=None)
     return [ln.strip() for ln in text.splitlines() if ':' in ln]
 
 
 def n3_facts(n3):
     """qdiscs and the AP's view of its clients, read over ssh (no repository on N3)."""
-    remote = ('tc -s qdisc show dev wlan0; tc -s qdisc show dev eth0; '
+    # tc lives in /usr/sbin, which a non-login ssh shell on Debian leaves off PATH; without
+    # it the 9/22 A6 meta files hold the station lines only
+    remote = ('export PATH=$PATH:/usr/sbin:/sbin; '
+              'tc -s qdisc show dev wlan0; tc -s qdisc show dev eth0; '
               'sudo -n iw dev wlan0 station dump 2>/dev/null | '
               "grep -E '^Station|signal:|tx bitrate|rx bitrate'")
     text = _cmd_text(['ssh', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=5', n3, remote])

@@ -24,7 +24,7 @@ and switching robot controllers accordingly. KICS 2026 Fall.
 - Filenames, paths, commit messages and docs are in English.
 
 ## Status
-B1 complete (board runs 2-4, 2026-09-22). N4 edge link, edge controller and policies
-1-4 checked on the fake board over loopback (2026-09-20); the A10 pass on the lab PC is
-next. See `sim/bridge/README.md`, `edge/README.md`, `fw/NOTES.md`; A2 criteria in
-`fw/README.md`, A1 in `sim/NOTES.md`.
+A10 passed on the lab PC and N3 (Pi 5) is up: A4 and A6 passed, A5 passed A5-1 to A5-3
+with A5-4 (USB path after WireGuard) open (2026-09-22). B1 complete (board runs 2-4).
+See `net/README.md`, `sim/bridge/README.md`, `edge/README.md`, `fw/NOTES.md`; A2
+criteria in `fw/README.md`, A1 in `sim/NOTES.md`.
