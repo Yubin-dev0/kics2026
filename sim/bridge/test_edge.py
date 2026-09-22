@@ -23,6 +23,7 @@ and, registered, against the real N4 (sim/bridge/README.md, A10):
 import argparse
 import csv
 import importlib.util
+import math
 import random
 import socket
 import sys
@@ -296,7 +297,7 @@ def check_server():
     ok = True
     print('\nN4 controller (edge/server.py)')
     srvmod = load_server()
-    ctl = srvmod.Controller('a1')
+    ctl = srvmod.FollowerController('a1')
     # straight ahead towards waypoint 0 from the origin: full speed, no turn
     ok &= check('aligned: V_MAX straight', ctl.command(0, 0, 0, 2000, 0) == (220, 0))
     # 90 deg off: turn in place at W_MAX
@@ -310,10 +311,37 @@ def check_server():
     ok &= check('a1 rule slows at 300 mm', ctl.command(0, 0, 0, 300, 0) == (110, 0),
                 str(ctl.command(0, 0, 0, 300, 0)))
     ok &= check('a1 rule stops at 150 mm', ctl.command(0, 0, 0, 150, 0)[0] == 0)
-    ok &= check('rule none never slows', srvmod.Controller('none').command(0, 0, 0, 150, 0)[0] == 220)
+    ok &= check('rule none never slows', srvmod.FollowerController('none').command(0, 0, 0, 150, 0)[0] == 220)
+    ok &= check('default follower rule is none (D21)', srvmod.FollowerController().rule == 'none')
+
+    mctl = srvmod.make_controller()
+    ok &= check('default controller is the MLP', mctl.name == 'mlp', mctl.describe())
+    fol = srvmod.FollowerController('none')
+    worst_w = worst_v = 0
+    for i in range(0, 360, 3):
+        yaw = math.radians(i)
+        for d_mm, wp in ((300, 0), (1000, 1), (2000, 2)):
+            gx, gy = nav.WAYPOINTS[wp]
+            x, y = int(gx * 1000 - d_mm), int(gy * 1000)
+            e = math.atan2(gy * 1000 - y, gx * 1000 - x) - yaw
+            e = math.atan2(math.sin(e), math.cos(e))
+            if abs(abs(e) - math.pi) < 0.35 or abs(abs(e) - 0.4) < 0.05:
+                continue
+            mv, mw = mctl.command(x, y, int(yaw * 1000), 2000, wp)
+            fv, fw = fol.command(x, y, int(yaw * 1000), 2000, wp)
+            worst_w, worst_v = max(worst_w, abs(mw - fw)), max(worst_v, abs(mv - fv))
+    ok &= check('MLP w within 150 mrad/s of the follower', worst_w <= 150, f'{worst_w} mrad/s')
+    ok &= check('MLP v within 20 mm/s of the follower', worst_v <= 20, f'{worst_v} mm/s')
+    ok &= check('MLP ignores min_range (no safety layer at the edge)',
+                mctl.command(0, 0, 0, 100, 0) == mctl.command(0, 0, 0, 3000, 0))
+    t = time.perf_counter()
+    for _ in range(1000):
+        mctl.command(100, 50, 30, 2000, 0)
+    per_us = (time.perf_counter() - t) * 1000
+    ok &= check('MLP forward pass under 200 us', per_us < 200, f'{per_us:.1f} us')
     ok &= check('past the last waypoint: zero', ctl.command(0, 0, 0, 2000, 5) == (0, 0))
 
-    srv = srvmod.Server('127.0.0.1', 0, ctl)
+    srv = srvmod.Server('127.0.0.1', 0, srvmod.FollowerController('none'))
     port = srv.sock.getsockname()[1]
     stop = threading.Event()
 

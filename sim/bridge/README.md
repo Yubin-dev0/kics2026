@@ -149,8 +149,9 @@ under native Windows Python on the lab PC (`py edge\server.py --listen 0.0.0.0:4
 
 Test delays for loopback runs, never for the sweep: `--delay-ms 200` holds every reply
 (stand-in for a base RTT), `--extra-ms 40 --extra-from 20` adds a rise from a given second
-after the first datagram (stand-in for the load at t0). `--rule a1` (default) runs the A1
-speed rule on the edge too; `--rule none` never slows (decision D21, see `edge/README.md`).
+after the first datagram (stand-in for the load at t0). The edge controller is the MLP by
+default; `--controller follower` runs the follower, with `--rule none` (D21) by default
+(`edge/README.md`).
 
 `python3 -m bridge.test_edge --serve 47000 --delay-ms 60` is the older stand-in: it answers
 with a test pattern (v = seq), not control, and stays for link tests only.
@@ -246,7 +247,8 @@ N4 server's `proc p99` figure (A10-3); a run without it is not a pass.
 | A10-1 | Round trip p99 < 10 ms over 1000 states at 20 Hz | plan 7.3 | provisional |
 | A10-2 | 1000 of 1000 answered, no bad or echo-mismatched reply | plan 7.3 | provisional |
 | A10-3 | Server process time p99 < 1 ms (`proc_us` in the server log) | the controller must not be a visible share of the 50 ms period | provisional |
-| A10-4 | Policy 2 completes the A1 course with the fake board on loopback (GOAL, 5/5) | the controller drives the course before any network is added | confirmed 9/20, dry run |
+| A10-4 | Policy 2 completes the A1 course with the fake board on loopback (GOAL, 5/5) | the controller drives the course before any network is added | confirmed 9/20, dry run (follower) |
+| A10-5 | With the MLP controller: A10-4 with no collision and a course time within 5% of the follower's | the learned controller must not change what policy 2 does at zero delay; 5% is provisional | confirmed 9/22, dry run: MLP 44.2 s, follower (rule none) 44.15 s, both min 0.26-0.27 m |
 
 Loopback checks of 9/20 (dry run, fake board, `edge/server.py`, WSL2 loopback; ideal
 kinematics, so the distances are not A1 figures): policy 2 GOAL 47.95 s, 959 states,
@@ -273,8 +275,9 @@ steady test delay of 200 ms: GOAL, no collision, no STOP step, commands 5 steps 
 - theta_high / theta_low of the watcher are provisional (20 / 10 ms) until A0.
 - The edge datagram format and port 47000 are provisional until B3 has run over the N3
   path. N4 must echo `seq` and `t_send_ns` unchanged, or the round trip cannot be read.
-- Which speed rule the edge controller runs in the sweep (`--rule a1` or `none`) is open
-  (D21). The bridge cannot see the rule; record it in `--note`.
+- The edge controller is the learned MLP (decided 9/22); a follower, if ever used, runs
+  with no speed rule (D21). The bridge cannot see either; record the controller line the
+  server prints (with the weights SHA-1) in `--note`.
 - A steady added delay produces almost no held steps even at 200 ms, because replies keep
   arriving one per period; what grows is their age. Read `deadline_miss` for the paper's
   M and `held` for link outages.

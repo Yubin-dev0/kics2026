@@ -12,14 +12,16 @@ listen address.
 
 seq and t_send_ns are copied back unchanged: N1 reads the round trip off the reply.
 
-Controller. The waypoint follower of sim/nav.py, driven by the waypoint index N1 sends
-(N1 advances wp_i; N4 only steers towards WAYPOINTS[wp_i]). With --rule a1 (default) the
-A1 speed rule runs on the edge as well, from the min_range in the state datagram: at zero
-delay policy 2 then drives exactly as policy 1, and any collision that appears with RTT is
-the effect of stale commands alone. With --rule none the edge never slows down, which is
-the "learning controller without a safety layer" reading of policy 2. Which of the two the
-sweep uses is decision D21 (integrated plan 10, to be settled by 9/23 B3). The N1 meta
-file cannot see the rule, so give it in the bridge run's --note.
+Controller (decided 9/22). The default is the learned controller, a small MLP
+(edge/mlp.py, weights edge/mlp_weights.json from edge/train_mlp.py) that imitates the
+waypoint follower with no speed rule. It steers towards WAYPOINTS[wp_i] from the state N1
+sends (N1 advances wp_i) and ignores min_range: the edge has no safety layer of its own,
+the safety rule runs on the robot (N2), which is the Simplex premise of the paper.
+
+--controller follower runs the follower itself, for comparison and fallback. Its speed
+rule is --rule none by default (D21); --rule a1 adds the A1 speed rule from min_range.
+Neither controller nor weights are visible to N1, so the startup line prints both, with
+the weights SHA-1, for the bridge run's --note.
 
 Log (--log): one row per datagram, N4 monotonic clock. proc_us is the time from recvfrom
 returning to sendto returning, the server's own share of the round trip.
@@ -30,11 +32,13 @@ reply back by a fixed time, the loopback stand-in for a base RTT (plan 9.2), and
 stand-in for the load at t0 that policy 3 has to notice. Delayed replies go out from a
 timer thread, so proc_us then measures only the controller, not the wait.
 
-  python3 edge/server.py --listen 127.0.0.1:47000            (loopback, A10 dry run)
+  python3 edge/server.py --listen 127.0.0.1:47000            (loopback, MLP)
+  python3 edge/server.py --listen 127.0.0.1:47000 --controller follower
   py edge\\server.py --listen 0.0.0.0:47000 --log data\\a10\\edge_run_1.csv   (lab PC)
 """
 import argparse
 import csv
+import hashlib
 import json
 import os
 import socket
@@ -43,12 +47,16 @@ import threading
 import time
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-for p in (os.path.join(REPO, 'sim'), os.path.join(REPO, 'fw', 'tools')):
+for p in (os.path.join(REPO, 'sim'), os.path.join(REPO, 'fw', 'tools'),
+          os.path.join(REPO, 'edge')):
     if p not in sys.path:
         sys.path.insert(0, p)
 
 import nav                                  # noqa: E402
+import mlp as mlpmod                        # noqa: E402
 from bridge import edge as edgelink         # noqa: E402
+
+WEIGHTS = os.path.join(REPO, 'edge', 'mlp_weights.json')
 
 LISTEN = '0.0.0.0:47000'
 LOG_FIELDS = ['n', 't_rx_ns', 'seq', 't_send_ns', 'x_mm', 'y_mm', 'yaw_mrad', 'min_mm',
@@ -64,10 +72,20 @@ def speed_rule(name, min_mm, v_mps):
     return min(v_mps, cap)
 
 
-class Controller:
-    def __init__(self, rule='a1', waypoints=nav.WAYPOINTS):
+def _wire(v_mps, w_radps):
+    return int(round(v_mps * 1000.0)), max(-32768, min(32767, int(round(w_radps * 1000.0))))
+
+
+class FollowerController:
+    """The rule-based waypoint follower of sim/nav.py, with an optional speed rule."""
+    name = 'follower'
+
+    def __init__(self, rule='none', waypoints=nav.WAYPOINTS):
         self.rule = rule
         self.waypoints = list(waypoints)
+
+    def describe(self):
+        return f'follower, rule {self.rule}'
 
     def command(self, x_mm, y_mm, yaw_mrad, min_mm, wp_i):
         """-> (v_mm, w_mrad) for the state N1 sent."""
@@ -76,8 +94,34 @@ class Controller:
         _, _, turning, w = nav.heading(x_mm / 1000.0, y_mm / 1000.0, yaw_mrad / 1000.0,
                                        self.waypoints[wp_i])
         v = 0.0 if turning else nav.V_MAX
-        v = speed_rule(self.rule, min_mm, v)
-        return int(round(v * 1000.0)), max(-32768, min(32767, int(round(w * 1000.0))))
+        return _wire(speed_rule(self.rule, min_mm, v), w)
+
+
+class MLPController:
+    """The learned controller: edge/mlp.py on the relative state to the current waypoint."""
+    name = 'mlp'
+
+    def __init__(self, weights=WEIGHTS, waypoints=nav.WAYPOINTS):
+        self.net = mlpmod.MLP(weights)
+        self.waypoints = list(waypoints)
+        with open(weights, 'rb') as f:
+            self.sha1 = hashlib.sha1(f.read()).hexdigest()[:12]
+
+    def describe(self):
+        t = self.net.spec.get('train', {})
+        return (f"mlp, weights {self.sha1} (seed {t.get('seed')}, "
+                f"{t.get('samples')} samples, course {t.get('course_s_mlp')} s)")
+
+    def command(self, x_mm, y_mm, yaw_mrad, min_mm, wp_i):
+        if wp_i < 0 or wp_i >= len(self.waypoints):
+            return 0, 0
+        f = mlpmod.features(x_mm / 1000.0, y_mm / 1000.0, yaw_mrad / 1000.0,
+                            self.waypoints[wp_i])
+        return _wire(*self.net.forward(f))
+
+
+def make_controller(kind='mlp', rule='none', weights=WEIGHTS):
+    return MLPController(weights) if kind == 'mlp' else FollowerController(rule)
 
 
 def pct(sorted_xs, q):
@@ -171,8 +215,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--listen', default=LISTEN, metavar='HOST:PORT')
-    ap.add_argument('--rule', default='a1', choices=('a1', 'none'),
-                    help='edge-side speed rule (default a1, see module docstring)')
+    ap.add_argument('--controller', default='mlp', choices=('mlp', 'follower'))
+    ap.add_argument('--weights', default=WEIGHTS, help='MLP weights (edge/train_mlp.py)')
+    ap.add_argument('--rule', default='none', choices=('none', 'a1'),
+                    help='follower only: edge-side speed rule (D21: none)')
     ap.add_argument('--log', default=None, help='per-datagram CSV')
     ap.add_argument('--delay-ms', type=float, default=0.0, help='test: hold every reply')
     ap.add_argument('--extra-ms', type=float, default=0.0,
@@ -184,9 +230,10 @@ def main():
                     help='exit after this many seconds (0 = run until Ctrl-C)')
     args = ap.parse_args()
     host, _, port = args.listen.rpartition(':')
-    srv = Server(host or '0.0.0.0', int(port), Controller(args.rule), args.log,
+    ctl = make_controller(args.controller, args.rule, args.weights)
+    srv = Server(host or '0.0.0.0', int(port), ctl, args.log,
                  args.delay_ms / 1000.0, args.extra_ms / 1000.0, args.extra_from)
-    print(f'N4 edge controller on {args.listen}, rule {args.rule}, '
+    print(f'N4 edge controller on {args.listen}, {ctl.describe()}, '
           f'{len(nav.WAYPOINTS)} waypoints, python {sys.version.split()[0]} '
           f'{sys.platform}' + (f', TEST delay {args.delay_ms} ms' if args.delay_ms else '')
           + (f' +{args.extra_ms} ms from {args.extra_from} s' if args.extra_ms else ''),

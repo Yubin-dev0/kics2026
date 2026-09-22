@@ -31,21 +31,37 @@ Restart the server before each A10 probe run: its periodic line (`proc p99 ... u
 covers exactly that run's datagrams, and the probe asks for that figure at the end (A10-3).
 The N1 bridge then runs with `--edge <N4 address>`; the addresses are in `net/README.md`.
 
-Options: `--rule a1|none` (edge-side speed rule, below), `--log` (per-datagram CSV),
+Options: `--controller mlp|follower` (default mlp), `--weights`, `--rule none|a1` (follower only), `--log` (per-datagram CSV),
 `--stats-every S`, `--quit-after S`; test delays `--delay-ms`, `--extra-ms`,
 `--extra-from` (never in a sweep run: netem on N3 is the real thing).
 
-## Controller
+## Controller (decided 2026-09-22)
 
-Waypoint follower of `sim/nav.py` (heading gain 2.0, turn in place above 0.4 rad, V_MAX
-220 mm/s), steering to `WAYPOINTS[wp_i]` with the `wp_i` N1 sends; N1 advances the index.
+The edge runs a **learned controller**: a small MLP (`mlp.py`, weights `mlp_weights.json`)
+trained by imitation of the waypoint follower of `sim/nav.py` with no speed rule. It is the
+default of `server.py`.
 
-| rule | edge speed | reading of policy 2 | status |
-|---|---|---|---|
-| `a1` (default) | follower speed capped by the A1 rule from the `min_mm` in the state (RUN / SLOW / STOP as on the board) | same controller as policy 1, only remote: any extra collision is stale-command effect alone | provisional (D21) |
-| `none` | follower speed, never slows | high-performance controller with no safety layer | provisional (D21) |
+| item | value | basis |
+|---|---|---|
+| inputs | sin and cos of the heading error to `WAYPOINTS[wp_i]`, distance to it / 2.0 m (capped at 1) | relative to the current waypoint, never absolute coordinates: a start off the demonstrated path still maps to seen states |
+| not an input | `min_mm` | the edge has no safety layer; safety runs on the robot (N2). This is the Simplex premise, and it keeps policy 2 from being pulled towards safety by its own controller (D19) |
+| network | 3-24-24-2, tanh hidden layers; v = 0.22 * sigmoid, w = 1.0 * tanh | small enough to evaluate with the standard library on the lab PC (about 45 us per command) |
+| labels | follower output, rule none: v 0.22 m/s or 0 while the heading error exceeds 0.4 rad, w = 2 * error clipped to 1 rad/s | D21 |
+| demonstrations | kinematic robot of `sim/bridge/dry_run.py` at 20 Hz, command applied one period late as on a healthy link; 60 runs with perturbed starts (course start +/-5 cm and sigma 0.3 rad, +/-30 cm and any heading, every waypoint with any heading) | in edge mode the board passes the edge command unchanged, so the bridge and the fake board add nothing to the (state, command) pairs |
+| compounding error | two DAgger rounds: the network drives (with 5% action noise), the follower labels the states it reached, retrain on all | a cloned controller drifts into states no demonstration covered unless it is trained on its own states |
+| reproducibility | seed 20260922; the JSON holds the sample counts, fit figures and the SHA-1 of `train_mlp.py`, `mlp.py`, `sim/nav.py` | retraining on N1 (`python3 edge/train_mlp.py`, about 15 s) gives the same network up to float rounding |
 
-The bridge cannot see which rule ran; put it in the bridge run's `--note`.
+Fit of the committed weights (`python3 edge/train_mlp.py --check`): w within 0.073 rad/s
+of the follower and v within 0.008 m/s, except next to the two places the follower itself
+jumps (v at 0.4 rad, w at +/-pi, where the network takes the long way round up to 0.17 rad
+early; both directions reach the heading in about the same time). On the kinematic course
+it drives 43.7 s, the same as the follower.
+
+`--controller follower` runs the follower itself, for comparison or as a fallback. Its speed
+rule is `--rule none` by default (D21); `--rule a1` adds the A1 rule from `min_mm`.
+
+Neither choice is visible to N1: the startup line prints the controller and the weights
+SHA-1, which go into the bridge run's `--note`.
 
 ## Log: `edge_run_N.csv`
 
