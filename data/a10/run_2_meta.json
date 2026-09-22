@@ -1,0 +1,59 @@
+{
+  "run_id": "2",
+  "stage": "A10",
+  "harness": "probe",
+  "started": "2026-09-22T17:13:57+09:00",
+  "finished": "2026-09-22T17:14:55+09:00",
+  "target": "192.168.50.4:47000",
+  "path": "direct",
+  "count": 1000,
+  "git": "f57fc5b",
+  "git_dirty": false,
+  "code_sha1": "655141b53893",
+  "net_sha1": "a39f71805c4e",
+  "edge_sha1": "fb76fe0522bc",
+  "world_sha1": "6b66d107282a",
+  "windows": {
+    "usbipd_version": null
+  },
+  "env_errors": {
+    "powershell": "OSError: [Errno 8] Exec format error: 'powershell.exe'",
+    "wsl": "PermissionError: [Errno 13] Permission denied: 'wsl.exe'",
+    "usbipd_version": "PermissionError: [Errno 13] Permission denied: 'usbipd.exe'",
+    "usbipd_list": "PermissionError: [Errno 13] Permission denied: 'usbipd.exe'"
+  },
+  "edge": {
+    "edge": "udp",
+    "target": "192.168.50.4:47000",
+    "local_port": 33115,
+    "deadline_ms": 50.0,
+    "sent": 1000,
+    "replied": 1000,
+    "unanswered": 0,
+    "late": 0,
+    "steps": 1000,
+    "holds": 1,
+    "misses": 1,
+    "bad": 0,
+    "unknown": 0,
+    "echo_mismatch": 0,
+    "out_of_order": 0,
+    "superseded": 0,
+    "send_errors": 0,
+    "rtt_ms_median": 4.145,
+    "rtt_ms_p99": 5.031,
+    "rtt_ms_max": 21.875,
+    "rtt_ms_min": 2.99,
+    "miss_rate": 0.0,
+    "miss_rate_steps": 0.001,
+    "hold_rate": 0.001
+  },
+  "server_proc_p99_us": 705.0,
+  "verdict": {
+    "a10_1_rtt_p99": true,
+    "a10_2_all_answered": true,
+    "a10_3_server_proc": true
+  },
+  "pass": true,
+  "note": "N1 USB-C LAN to N4 USB-A LAN, 192.168.50.0/24, before N3; N4 mlp, weights fe670ccebaf6, proc timed with perf_counter; ping Windows 2-3 ms, WSL ~4 ms; run 1 void (proc on 15.6 ms clock)"
+}

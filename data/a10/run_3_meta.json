@@ -1,0 +1,101 @@
+{
+  "run_id": "3",
+  "stage": "A10",
+  "harness": "probe",
+  "started": "2026-09-22T18:12:34+09:00",
+  "finished": "2026-09-22T18:13:37+09:00",
+  "target": "192.168.50.4:47000",
+  "path": "n3",
+  "count": 1000,
+  "git": "f57fc5b",
+  "git_dirty": false,
+  "code_sha1": "655141b53893",
+  "net_sha1": "a39f71805c4e",
+  "edge_sha1": "fb76fe0522bc",
+  "world_sha1": "6b66d107282a",
+  "windows": {
+    "power_overlay_ac": "ded574b5-45a0-4f42-8737-46345c09c238",
+    "power_overlay_dc": "ded574b5-45a0-4f42-8737-46345c09c238",
+    "power_mode_ac": "best_performance",
+    "power_mode_dc": "best_performance",
+    "on_ac_power": true,
+    "windows_adapters": [
+      {
+        "name": "Wi-Fi 5",
+        "status": "Not Present",
+        "desc": "Intel(R) Wi-Fi 7 BE201 320MHz"
+      },
+      {
+        "name": "Wi-Fi",
+        "status": "Up",
+        "desc": "Intel(R) Wi-Fi 7 BE201 320MHz"
+      },
+      {
+        "name": "Wi-Fi 2",
+        "status": "Not Present",
+        "desc": "Intel(R) Wi-Fi 7 BE201 320MHz"
+      },
+      {
+        "name": "Bluetooth 네트워크 연결",
+        "status": "Disconnected",
+        "desc": "Bluetooth Device (Personal Area Network)"
+      },
+      {
+        "name": "vEthernet (WSL (Hyper-V firewall))",
+        "status": "Up",
+        "desc": "Hyper-V Virtual Ethernet Adapter"
+      },
+      {
+        "name": "Wi-Fi 4",
+        "status": "Up",
+        "desc": "Intel(R) Wi-Fi 7 BE201 320MHz"
+      }
+    ],
+    "wsl_version": [
+      "WSL 버전: 2.7.14.0",
+      "커널 버전: 6.18.33.2-2",
+      "WSLg 버전: 1.0.73.2",
+      "MSRDC 버전: 1.2.7214",
+      "Direct3D 버전: 1.611.1-81528511",
+      "DXCore 버전: 10.0.26100.1-240331-1435.ge-release",
+      "Windows 버전: 10.0.26200.9457"
+    ],
+    "usbipd_version": "5.3.0-54+Branch.master.Sha.aa3db8b82c4cb5071fd31bc54211606c70886912.aa3db8b82c4cb5071fd31bc54211606c70886912",
+    "usbipd_busid_line": "2-3 0483:374b ST-Link Debug, USB 대용량 저장 장치, STMicroelectronics STLink V... Shared"
+  },
+  "env_errors": {},
+  "edge": {
+    "edge": "udp",
+    "target": "192.168.50.4:47000",
+    "local_port": 58529,
+    "deadline_ms": 50.0,
+    "sent": 1000,
+    "replied": 1000,
+    "unanswered": 0,
+    "late": 0,
+    "steps": 1000,
+    "holds": 1,
+    "misses": 1,
+    "bad": 0,
+    "unknown": 0,
+    "echo_mismatch": 0,
+    "out_of_order": 0,
+    "superseded": 0,
+    "send_errors": 0,
+    "rtt_ms_median": 6.899,
+    "rtt_ms_p99": 9.478,
+    "rtt_ms_max": 13.337,
+    "rtt_ms_min": 2.809,
+    "miss_rate": 0.0,
+    "miss_rate_steps": 0.001,
+    "hold_rate": 0.001
+  },
+  "server_proc_p99_us": 805.0,
+  "verdict": {
+    "a10_1_rtt_p99": true,
+    "a10_2_all_answered": true,
+    "a10_3_server_proc": true
+  },
+  "pass": true,
+  "note": "via N3, mlp fe670cc"
+}
