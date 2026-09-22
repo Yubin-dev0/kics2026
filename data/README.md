@@ -16,9 +16,12 @@
 - `a10/`, `a5/` also hold edge probe runs (`bridge.test_edge --probe --run N`): run_N.csv
   with one row per datagram (seq, t_send_ns, t_recv_ns, rtt_us, empty when unanswered)
   and run_N_meta.json with the path, figures and verdict (`harness` = probe)
-- `a4/`, `a6/` -- N3 round-trip runs (`net/ping_run.py`): run_N.log, the raw `ping -D`
+- `a4/`, `a6/`, `a8/` -- N3 round-trip runs (`net/ping_run.py`): run_N.log, the raw `ping -D`
   output, and run_N_meta.json (`harness` = ping); `a4/n3_state_<device>.txt` is the N3
-  snapshot the A4 verdict belongs to (`net/n3/state.sh`)
+  snapshot the A4 verdict belongs to (`net/n3/state.sh`). A8 runs carry the load that ran
+  alongside (`load`, `load_run`) and the figures before / during / after it
+- `a8/load_run_N.json` -- a load started by hand (`load/loadctl.py`): t0, the agent's ack,
+  the received rate
 - `<stage>/n3_run_N_windows.csv`, `n3_run_N_flags.csv`, `n3_run_N_meta.json` -- the N3
   detector's files of bridge run N (`capture/fetch.sh`; columns in `capture/README.md`).
   The pcap stays on N3

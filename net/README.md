@@ -18,7 +18,7 @@ and the spare Pi 4 if it ever has to replace it.
 | `n3/eth_up.sh` | eth0 fixed address towards N4, no gateway |
 | `n3/netem.sh` | base RTT: half on wlan0 egress, half on eth0 egress; `off`, `show` |
 | `n3/state.sh` | snapshot of board, OS, Wi-Fi, profiles, qdiscs, packages |
-| `ping_run.py` | A4 and A6 runs from N1: raw ping log, figures, verdict, meta file |
+| `ping_run.py` | A4, A6 and A8 runs from N1: raw ping log, figures, verdict, meta file; A8 triggers the N5 load mid-run |
 | `../analysis/watch_replay.py` | replays the policy 3 watcher over probe runs (A5-3b) |
 | `wg/n1.conf.example`, `wg/n4.conf.example` | A5 tunnel templates (real `*.conf` files are git-ignored) |
 
@@ -159,6 +159,11 @@ repeated detach/attach, `usbipd attach` hung at "Using IP address 172.23.0.1". C
 since A3: WireGuard on N1 (active), N1 Wi-Fi on `kics-n3` (no internet), WSL up for 6 h.
 No run 7 files were written. Next: fresh WSL, A3 run 7 with the tunnel off, run 8 with it
 on.
+
+### A8 (load) and A7 (capture)
+
+A8 runs with `ping_run.py --stage A8` and the N5 agent; criteria and parameters are in
+`load/README.md`. A7 is `capture/README.md`.
 
 ## Known constraints
 

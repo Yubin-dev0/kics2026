@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""Round-trip runs for the N3 stages, from N1 in WSL2: A4 (the access point) and A6
-(netem base RTT). Like every other stage, a run writes data/<stage>/run_N.log (the raw
+"""Round-trip runs for the N3 stages, from N1 in WSL2: A4 (the access point), A6
+(netem base RTT) and A8 (the N5 load). Like every other stage, a run writes data/<stage>/run_N.log (the raw
 ping output, one reply per line with its epoch time) and run_N_meta.json (conditions,
 figures, verdict), and is registered with analysis/append_run.py.
 
   python3 net/ping_run.py --stage A4 --run 1 --target 192.168.60.1 --count 12000 --n3 yubin@192.168.60.1
   python3 net/ping_run.py --stage A6 --run 1 --target 192.168.50.4 --set-ms 0 --n3 yubin@192.168.60.1
   python3 net/ping_run.py --stage A6 --run 2 --target 192.168.50.4 --set-ms 10 --base-run 1 --n3 yubin@192.168.60.1
+  python3 net/ping_run.py --stage A8 --run 1 --target 192.168.50.4 --n3 yubin@192.168.60.1                 (no load reference)
+  python3 net/ping_run.py --stage A8 --run 2 --target 192.168.50.4 --base-run 1 --load L1 --n5 192.168.60.20 --load-at 5
+  python3 net/ping_run.py --stage A8 --run 5 --target 192.168.50.4 --base-run 1 --load L2 --n5 192.168.60.20 --load-at 5
+  python3 net/ping_run.py --a8-spread data/a8/run_2_meta.json data/a8/run_3_meta.json data/a8/run_4_meta.json
   python3 net/ping_run.py --parse data/a4/run_1.log
 
 Pings go out at 20 Hz (-i 0.05), the robot's control rate, so the figures describe the
@@ -18,6 +22,11 @@ Verdicts (net/README.md):
       that is the board watchdog, so each one would have stopped the robot in B3.
   A6  run with --set-ms 0 is the reference. For a set base RTT, the added delay
       (median minus the reference median) is within +/-10% of the set value (plan 7.3).
+  A8  the load is triggered on N5 (load/n5_agent.py) --load-at seconds into the run and
+      t0 is recorded. Figures are split into before t0, during the load (from t0 + 1 s)
+      and after it (3 s from its end, L2). A8-1 (load/README.md): the rise of the median
+      during the load over the --base-run reference, three runs within 20% (--a8-spread).
+      A8-2: after L2 the median is back within the reference's p99.
 """
 import argparse
 import datetime as dt
@@ -26,13 +35,18 @@ import os
 import re
 import shutil
 import statistics
+import socket
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / 'sim'))
+sys.path.insert(0, str(REPO / 'load'))
 from bridge import env   # noqa: E402
+import loadctl           # noqa: E402
 
 INTERVAL_S = 0.05
 A4_COUNT = 12000            # 10 minutes at 20 Hz (plan 7.3: 10 minutes without a cut)
@@ -40,6 +54,9 @@ A4_MEDIAN_MS = 5.0          # plan 7.3
 A4_CUT_S = 1.0              # provisional: a reply gap this long counts as a cut
 WDOG_GAP_S = 0.15           # board watchdog (fw/NOTES.md)
 A6_TOL = 0.10               # plan 7.3: +/-10% of the set base RTT
+A8_SPREAD = 0.20            # plan v5 7.3: three L1 rises within 20%
+A8_SETTLE_S = 1.0           # provisional: figures "during the load" start this long after t0
+A8_AFTER_S = 3.0            # plan v3 10.1 A8: back to the reference within 3 s of L2's end
 REPLY = re.compile(r'^\[(\d+\.\d+)\].*icmp_seq=(\d+).*time=([\d.]+) ms')
 
 
@@ -48,8 +65,9 @@ def pct(xs, q):
     return xs[min(len(xs) - 1, int(round(q * (len(xs) - 1))))]
 
 
-def parse(lines, count=None):
-    """Figures of one ping log: round trip, loss, and gaps between replies."""
+def parse(lines, count=None, span=None):
+    """Figures of one ping log: round trip, loss, and gaps between replies. span =
+    (from_s, to_s) on the epoch clock keeps only the replies inside it (A8 phases)."""
     replies, dups = {}, 0
     for ln in lines:
         m = REPLY.match(ln)
@@ -59,17 +77,20 @@ def parse(lines, count=None):
         if seq in replies or 'DUP!' in ln:
             dups += 1
             continue
-        replies[seq] = (float(m.group(1)), float(m.group(3)))
+        t = float(m.group(1))
+        if span and not (span[0] <= t < span[1]):
+            continue
+        replies[seq] = (t, float(m.group(3)))
     if not replies:
         return {'received': 0, 'sent': count or 0}
     seqs = sorted(replies)
-    sent = count or seqs[-1]
+    sent = count or (seqs[-1] - seqs[0] + 1 if span else seqs[-1])
     rtt = sorted(r for _, r in replies.values())
     stamps = [replies[s][0] for s in seqs]
     gaps = [b - a for a, b in zip(stamps, stamps[1:])]
     lost_runs, run = [], 0
     have = set(seqs)
-    for s in range(1, sent + 1):
+    for s in range(seqs[0] if span else 1, (seqs[0] if span else 1) + sent):
         if s in have:
             if run:
                 lost_runs.append(run)
@@ -100,6 +121,18 @@ def verdict(stage, res, set_ms, base_median):
              'no_cut': res.get('longest_gap_s') is not None
                        and res['longest_gap_s'] < A4_CUT_S}
         return v, all(v.values())
+    if stage == 'A8':
+        if base_median is None:
+            return {'reference': True}, res.get('received', 0) > 0
+        during = res.get('during') or {}
+        if not during.get('received'):
+            return {'load_replies': False}, False
+        res['rise_ms'] = round(during['rtt_ms_median'] - base_median, 3)
+        v = {'rises': res['rise_ms'] > 0}
+        after = res.get('after')
+        if after and after.get('received'):
+            v['back_after_load'] = after['rtt_ms_median'] <= res['base_p99_ms']
+        return v, all(v.values())
     if set_ms == 0:
         return {'reference': True}, res.get('received', 0) > 0
     added = res['rtt_ms_median'] - base_median
@@ -107,6 +140,56 @@ def verdict(stage, res, set_ms, base_median):
     res['added_error_pct'] = round(100.0 * (added - set_ms) / set_ms, 2)
     v = {'within_10pct': abs(added - set_ms) <= A6_TOL * set_ms}
     return v, all(v.values())
+
+
+def a8_spread(paths):
+    """A8-1: the rises of three load runs within 20% of each other."""
+    rises = []
+    for p in paths:
+        m = json.loads(Path(p).read_text())
+        r = m['results'].get('rise_ms')
+        print(f"{p}: load {m.get('load')}, rise {r} ms, during median {m['results'].get('during', {}).get('rtt_ms_median')} ms")
+        rises.append(r)
+    if any(r is None for r in rises):
+        print('a run has no rise (no --base-run or no replies during the load)')
+        return False
+    spread = (max(rises) - min(rises)) / statistics.median(rises)
+    ok = spread <= A8_SPREAD and min(rises) > 0
+    print(f"rises {rises} ms: spread {100 * spread:.1f}% of the median -> {'PASS' if ok else 'FAIL'} (A8-1, <= 20%)")
+    return ok
+
+
+class LoadTrigger:
+    """Starts the N5 load at --load-at seconds and remembers t0 (this clock)."""
+
+    def __init__(self, n5, load, proto, rate, server, run, seconds):
+        self.addr = (n5, loadctl.LOAD_PORT)
+        self.load, self.proto, self.rate, self.server, self.run = load, proto, rate, server, run
+        self.seconds = seconds if seconds is not None else loadctl.LOADS[load]
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.settimeout(2.0)
+        self.t0_ns = None
+        self.ack = None
+        self.done = None
+
+    def fire(self):
+        body = f'L,{self.load},{self.seconds:g},{self.proto},{self.rate},{self.server},{self.run}'
+        self.t0_ns = time.time_ns()
+        self.sock.sendto(loadctl.with_checksum(body), self.addr)
+        try:
+            self.ack = loadctl.parse(self.sock.recv(256))
+        except (socket.timeout, ValueError) as e:
+            self.ack = f'no ack: {e}'
+        print(f'  t0 {self.t0_ns}: {body} -> {self.addr[0]}, ack {self.ack}', flush=True)
+
+    def collect(self):
+        self.sock.settimeout(1.0)
+        try:
+            self.done = loadctl.parse(self.sock.recv(256))
+        except (socket.timeout, ValueError):
+            pass
+        return {'load': self.load, 'proto': self.proto, 'rate': self.rate, 'server': self.server,
+                'seconds': self.seconds, 'n5': self.addr[0], 't0_ns': self.t0_ns, 'ack': self.ack, 'done': self.done}
 
 
 def _cmd_text(cmd, timeout=20.0, encoding='utf-8'):
@@ -179,13 +262,21 @@ def run_ping(target, count, log_path):
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--stage', choices=('A4', 'A6'))
+    ap.add_argument('--stage', choices=('A4', 'A6', 'A8'))
     ap.add_argument('--run', type=int)
     ap.add_argument('--target', help='A4: N3 (192.168.60.1). A6: N4 (192.168.50.4)')
     ap.add_argument('--count', type=int, default=None,
                     help=f'pings (default A4 {A4_COUNT}, A6 1000)')
     ap.add_argument('--set-ms', type=float, default=None, help='A6: base RTT set on N3')
-    ap.add_argument('--base-run', type=int, default=None, help='A6: the --set-ms 0 run')
+    ap.add_argument('--base-run', type=int, default=None, help='A6: the --set-ms 0 run; A8: the no-load run')
+    ap.add_argument('--load', default=None, choices=('L1', 'L2'), help='A8: trigger this load on N5')
+    ap.add_argument('--n5', default=None, help='A8: N5 address running load/n5_agent.py')
+    ap.add_argument('--load-at', type=float, default=5.0, help='A8: seconds into the run to trigger')
+    ap.add_argument('--load-proto', default='udp', choices=('udp', 'tcp'))
+    ap.add_argument('--load-rate', default='60M')
+    ap.add_argument('--load-server', default='192.168.60.1')
+    ap.add_argument('--load-seconds', type=float, default=None)
+    ap.add_argument('--a8-spread', nargs='+', metavar='META', help='A8-1 check over load run meta files')
     ap.add_argument('--n3', default=None, help='user@N3, to record qdiscs and clients')
     ap.add_argument('--out', default=None)
     ap.add_argument('--note', default='')
@@ -195,12 +286,25 @@ def main():
     if args.parse:
         print(json.dumps(parse(Path(args.parse).read_text().splitlines()), indent=2))
         return
+    if args.a8_spread:
+        raise SystemExit(0 if a8_spread(args.a8_spread) else 1)
     if not (args.stage and args.run and args.target):
         ap.error('--stage, --run and --target are required')
     count = args.count or (A4_COUNT if args.stage == 'A4' else 1000)
     out = Path(args.out) if args.out else REPO / 'data' / args.stage.lower()
     out.mkdir(parents=True, exist_ok=True)
-    base_median = None
+    base_median, base_p99 = None, None
+    trigger = None
+    if args.stage == 'A8':
+        if args.base_run is not None:
+            bm = out / f'run_{args.base_run}_meta.json'
+            br = json.loads(bm.read_text())['results']
+            base_median, base_p99 = br['rtt_ms_median'], br['rtt_ms_p99']
+        if args.load:
+            if not args.n5:
+                ap.error('--load needs --n5')
+            trigger = LoadTrigger(args.n5, args.load, args.load_proto, args.load_rate,
+                                  args.load_server, args.run, args.load_seconds)
     if args.stage == 'A6':
         if args.set_ms is None:
             ap.error('A6 needs --set-ms (0 for the reference run)')
@@ -220,9 +324,25 @@ def main():
             'set_ms': args.set_ms, 'base_run': args.base_run, 'base_median_ms': base_median,
             'git': commit, 'git_dirty': dirty, 'note': args.note,
             'n1_wifi': wifi_facts(),
+            'load': args.load, 'load_at_s': args.load_at if args.load else None,
             'n3_before': n3_facts(args.n3) if args.n3 else None}
+    timer = None
+    if trigger:
+        timer = threading.Timer(args.load_at, trigger.fire)
+        timer.daemon = True
+        timer.start()
     lines, aborted = run_ping(args.target, count, log_path)
+    if timer:
+        timer.cancel()
     res = parse(lines, count)
+    if trigger and trigger.t0_ns:
+        meta['load_run'] = trigger.collect()
+        t0 = trigger.t0_ns / 1e9
+        t_end = t0 + trigger.seconds
+        res['before'] = parse(lines, span=(0, t0))
+        res['during'] = parse(lines, span=(t0 + A8_SETTLE_S, t_end))
+        res['after'] = parse(lines, span=(t_end, t_end + A8_AFTER_S))
+        res['base_median_ms'], res['base_p99_ms'] = base_median, base_p99
     meta['n3_after'] = n3_facts(args.n3) if args.n3 else None
     meta['finished'] = dt.datetime.now().astimezone().isoformat(timespec='seconds')
     meta['results'] = res
@@ -242,6 +362,12 @@ def main():
     if 'added_ms' in res:
         print(f"  set {args.set_ms} ms, added {res['added_ms']} ms "
               f"({res['added_error_pct']:+}%) over reference {base_median} ms")
+    if 'during' in res:
+        for ph in ('before', 'during', 'after'):
+            r = res[ph]
+            print(f"  {ph:6s}: median {r.get('rtt_ms_median')} p99 {r.get('rtt_ms_p99')} max {r.get('rtt_ms_max')} ms, "
+                  f"{r.get('received')}/{r.get('sent')} replies")
+        print(f"  rise during the load {res.get('rise_ms')} ms over reference {base_median} ms")
     print(f"  verdict {meta['verdict']}")
     print(f"\n{'PASS' if meta['pass'] else 'FAIL'} -> {log_path}, {meta_path.name}")
     print(f'register: python3 analysis/append_run.py {args.stage} {args.run}')

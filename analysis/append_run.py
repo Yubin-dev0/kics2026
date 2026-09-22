@@ -15,9 +15,10 @@ Stages:
             one row per line and run_N_meta.json with results and verdict.
             The ledger columns stay the same as for A1; bench figures go into
             'result' (PASS / FAIL / ABORTED) and a compact 'note'.
-  A4, A6    N3 round-trip runs (net/ping_run.py): data/a4 or data/a6, run_N.log (raw ping)
-            and run_N_meta.json. Median, p99, loss, gaps and the set base RTT go into
-            'note'; 'result' is PASS / FAIL.
+  A4, A6, A8
+            N3 round-trip runs (net/ping_run.py): data/a4, a6 or a8, run_N.log (raw ping)
+            and run_N_meta.json. Median, p99, loss, gaps and the set base RTT (A6) or the
+            load and its rise (A8) go into 'note'; 'result' is PASS / FAIL.
   A10, A5   edge probes (python3 -m bridge.test_edge --probe ... --run N): run_N.csv with
             one row per datagram and run_N_meta.json. A5 is the same probe through the
             WireGuard tunnel. The path, round trip and N4 process time go into 'note'.
@@ -240,13 +241,20 @@ def ping_row(run_id, stage, meta):
         parts.append(f"set {meta['set_ms']} ms" + (
             f" added {r.get('added_ms')} ms ({r.get('added_error_pct'):+}%)"
             if r.get('added_ms') is not None else ' (reference)'))
+    if meta.get('load'):
+        lr = meta.get('load_run') or {}
+        d = r.get('during') or {}
+        parts.append(f"load {meta['load']} {lr.get('proto')} {lr.get('rate')} at {meta.get('load_at_s')} s, "
+                     f"during median {d.get('rtt_ms_median')} p99 {d.get('rtt_ms_p99')} ms, "
+                     f"rise {r.get('rise_ms')} ms over reference {r.get('base_median_ms')} ms")
     failed = [k for k, v in (meta.get('verdict') or {}).items() if not v]
     if failed:
         parts.append('failed ' + '/'.join(failed))
     if meta.get('aborted'):
         parts.append(f"aborted: {meta['aborted']}")
+    node = {'A4': 'N1+N3', 'A8': 'N1+N3+N4+N5'}.get(stage, 'N1+N3+N4')
     return {'run_id': run_id, 'stage': stage, 'date': meta['started'][:10],
-            'node': 'N1+N3' if stage == 'A4' else 'N1+N3+N4', 'git': git_label(meta),
+            'node': node, 'git': git_label(meta),
             'result': 'PASS' if meta.get('pass') else 'FAIL', 'status': _status(meta),
             'note': ('PASS; ' if meta.get('pass') else 'FAIL; ') + '; '.join(parts)}
 
