@@ -173,12 +173,12 @@ From B3 on, a policy 2 run that collides is a result, not a failed run: read `go
 | B1-1 | Firmware reports proto 2 and build "Sep 16 2026 18:11:48 dbg" | same board as A2 and A3 | confirmed |
 | B1-2 | Policy 1: GOAL, 5/5 waypoints, min_range never below d_col 0.15 m | plan 10.2 | confirmed |
 | B1-2a | Scan-driven loop: consecutive scan lines are 0.05 s apart in sim time (median) and no two share a sim time | A1 ran a sim-clock timer that fired twice per /clock tick (sim/NOTES.md); a repeat would mean the same scan was used twice | confirmed |
-| B1-3 | Loop jitter: \|interval of S line writes - 50 ms\| p99 < 5 ms, and no interval of 75 ms or more | plan 10.2 bound (10% of the control period). p99 alone passes a run with a few long stalls; a skipped scan means the robot ran one extra period on an old command. A1 measured /scan at sigma 0.4 ms over 2063 intervals, which rules out any skip (one would raise sigma above 1.1 ms) | provisional |
-| B1-4 | Link: lost 0, bad_lines +0, no WDOG line and no bridge stop during the run, no stray line | A2/A3 V5 rule carried into driving | provisional |
-| B1-5 | U upper bound p99 < 5 ms | A3-7 | provisional |
+| B1-3 | Loop jitter: \|interval of S line writes - 50 ms\| p99 < 5 ms, and no interval of 75 ms or more | plan 10.2 bound (10% of the control period). p99 alone passes a run with a few long stalls; a skipped scan means the robot ran one extra period on an old command. A1 measured /scan at sigma 0.4 ms over 2063 intervals, which rules out any skip (one would raise sigma above 1.1 ms) | confirmed 9/22 (runs 2-4: p99 0.90-0.93 ms, 0 skips) |
+| B1-4 | Link: lost 0, bad_lines +0, no WDOG line and no bridge stop during the run, no stray line | A2/A3 V5 rule carried into driving | confirmed 9/22 (runs 2-4) |
+| B1-5 | U upper bound p99 < 5 ms | A3-7 | confirmed 9/22 (runs 2-4: p99 2.74-2.83 ms) |
 | B1-6 | Charger connected and Windows power mode Best performance | A3 findings | confirmed |
 | B1-7 | B1-1 to B1-6 on 3 consecutive board runs | A2/A3 streak rule | confirmed |
-| B1-8 | Fake-board control runs 101-103 pass B1-2 to B1-5 | isolates the USB path and the board: same bridge, same core firmware in WSL2 | provisional |
+| B1-8 | Fake-board control runs 101-103 pass B1-2 to B1-5 | isolates the USB path and the board: same bridge, same core firmware in WSL2 | not run (dropped 9/22: the comparison with A1 is qualitative and the paper does not use it) |
 
 Comparison with A1 is qualitative (collisions, completion, min_range above d_stop):
 A1 updated its command at 10 Hz of simulation time, B1 at 20 Hz. Board runs against the
@@ -187,6 +187,40 @@ min_range are reported without a pass bar.
 
 Fake-board control runs are registered (node N1), unlike the fake bench runs in `fw/`,
 because they are the reference the board runs are compared with.
+
+## B1 validation (2026-09-22, lab, board)
+
+Policy 1 on the A1 course, NUCLEO-F446RE build "Sep 16 2026 18:11:48 dbg", source 2431ae3,
+power mode Best performance on AC (read automatically), usbipd busid 2-3. Gazebo was
+restarted before every run. B1 passes on runs 2-4.
+
+| run | result | sim time s | min_range m | SLOW / STOP steps | jitter p99 / max ms | skips | U bound median / p99 / max ms | lost | end wdog ms |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | ABORTED | - | - | - | - | - | - | - | - |
+| 2 | GOAL | 48.8 | 0.2708 | 198 / 0 | 0.926 / 3.02 | 0 | 1.981 / 2.829 / 6.002 | 0/976 | 150.0 |
+| 3 | GOAL | 48.7 | 0.2691 | 195 / 0 | 0.896 / 1.355 | 0 | 1.896 / 2.735 / 4.544 | 0/974 | 150.7 |
+| 4 | GOAL | 49.0 | 0.2597 | 204 / 0 | 0.934 / 2.43 | 0 | 1.893 / 2.794 / 3.176 | 0/980 | 150.8 |
+
+Run 1 stopped after 10 s because Gazebo had not been started; it is registered as
+discarded. In every passing run bad_lines stayed at +0, no WDOG line or bridge stop
+occurred during the run, sim steps were 0.05 s with no repeat, and the jitter sigma was
+0.29-0.30 ms against a /scan sigma of 0.26 ms measured before run 2.
+
+Against the references:
+- A1 (runs 10-12): 48.7-49.0 s, min_range 0.262-0.277 m, no STOP. B1 falls in the same
+  range (run 4 sits 2 mm below the A1 minimum). The comparison stays qualitative, since
+  A1 updated its command at 10 Hz of simulation time.
+- A3 (run 6, Gazebo running): host round trip p99 2.84 ms. The B1 U bound p99 of
+  2.74-2.83 ms is the same path under driving load, so A3 carries over to the timing
+  chain.
+- The single U maximum of 6.0 ms (run 2) is above the p99 bar but did not repeat
+  (4.5 and 3.2 ms in runs 3 and 4).
+
+The settle line switched the board in run 2 only (switch_us 25 us); in runs 3 and 4 the
+board was still in local mode from the previous run, so the settle line reported
+switch_us 0 and n_sw stayed at 1, as designed. 25 us is below the A2 range of 31-35 us;
+the switching delay C used in Table 1 is taken from the C1 flag lines, not from settle
+lines.
 
 ## A10 pass criteria (edge controller, plan 7.3)
 
@@ -211,6 +245,10 @@ steady test delay of 200 ms: GOAL, no collision, no STOP step, commands 5 steps 
 (both rules) -- see Known constraints.
 
 ## Known constraints
+
+- The board's usbipd busid depends on the laptop USB port and controller numbering: 1-3 at
+  home, 2-3 in the lab (2026-09-22). Pass `--busid` to `bridge.node` and `bridge.env`, or the
+  meta file records the wrong device.
 
 - On the A1 course a steady 200 ms delay did not make policy 2 collide in the dry run
   (min_range 0.27 m, no STOP step, either rule): between waypoints the stale command is
