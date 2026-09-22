@@ -24,7 +24,10 @@ Neither controller nor weights are visible to N1, so the startup line prints bot
 the weights SHA-1, for the bridge run's --note.
 
 Log (--log): one row per datagram, N4 monotonic clock. proc_us is the time from recvfrom
-returning to sendto returning, the server's own share of the round trip.
+returning to sendto returning, the server's own share of the round trip. It is taken
+with time.perf_counter_ns, not the monotonic clock: on Windows time.monotonic ticks every
+15.6 ms, so a proc figure from it reads 0 or about 16000 us and says nothing about a
+controller that takes tens of microseconds.
 
 Test delays (never in a sweep run; netem on N3 is the real thing): --delay-ms holds every
 reply back by a fixed time, the loopback stand-in for a base RTT (plan 9.2), and
@@ -155,6 +158,7 @@ class Server:
         except socket.timeout:
             return False
         t_rx = time.monotonic_ns()
+        p_rx = time.perf_counter_ns()
         try:
             seq, t_send, x_mm, y_mm, yaw_mrad, min_mm, wp_i = edgelink.parse_q(data)
         except ValueError:
@@ -178,7 +182,7 @@ class Server:
                 self.timers = [x for x in self.timers if x.is_alive()]
         else:
             self._send(reply, addr)
-        proc = (time.monotonic_ns() - t_rx) // 1000
+        proc = (time.perf_counter_ns() - p_rx) // 1000
         self.proc_us.append(proc)
         if self.log:
             self.log.writerow({'n': self.received, 't_rx_ns': t_rx, 'seq': seq,
