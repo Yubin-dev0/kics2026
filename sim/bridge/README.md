@@ -89,6 +89,13 @@ One row per S line (`kind` = settle, scan, flag) written when its C line arrives
 200 ms without one (`lost` = 1). Board watchdog lines (`wdog`) and bridge stops
 (`bridge_stop`) get rows of their own. Rows are in completion order; sort by `line`.
 
+Run figures (`bridge.summary`, meta `results`) also give `t_col_ns` and `t_wp_ns`: the N1
+monotonic time of each collision entry and of each waypoint arrival (the scan row where
+`wp_i` moves on), with `t_col_s`, `t_wp_s` counted from the first scan and
+`t_col_wall_ns`, `t_wp_wall_ns` on N1's wall clock through the start clock pair. They are
+taken from `t_scan_rx_ns`, not `sim_time`, which /clock quantises to 0.1 s; the C3 merge
+puts them on N3's clock with the A9 offset to compare them with t0 and the G window.
+
 | column | unit | meaning |
 |---|---|---|
 | line | - | S line number in this run, unique |

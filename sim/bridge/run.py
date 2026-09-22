@@ -186,6 +186,13 @@ class Session:
             'flag_events': r.flag_events,
         })
         res.update(summary.edge_figures(self.meta['edge']))
+        # collision and waypoint times on N1's wall clock, through the start clock pair;
+        # the C3 merge takes them onto N3's clock with the A9 offset
+        cp = r.clock.get('start')
+        if cp:
+            off = cp['wall_ns'] - cp['mono_ns']
+            res['t_col_wall_ns'] = [t + off for t in res.get('t_col_ns', [])]
+            res['t_wp_wall_ns'] = [t + off for t in res.get('t_wp_ns', [])]
         self.meta['clock_pairs'] = r.clock
         self.meta['finished'] = dt.datetime.now().astimezone().isoformat(timespec='seconds')
         self.meta['results'] = res
@@ -229,6 +236,8 @@ class Session:
               f"{res['result']} in {res['duration_sim_s']} s sim, "
               f"wp {res['waypoints_reached']}, collided {res['collided']}, "
               f"min {res['min_range_m']} m, states {res['states']}")
+        print(f"  times : waypoints at {res.get('t_wp_s')} s, collisions at {res.get('t_col_s')} s "
+              f"(from the first scan, N1 clock)")
         print(f"  loop  : tx dev p99 {res.get('tx_dev_p99_ms')} ms, max {res.get('tx_dev_max_ms')}, "
               f"sd {res.get('tx_sd_ms')}, skips {res.get('tx_skips')} "
               f"(scan cb sd {res.get('scan_rx_sd_ms')}, scan->tx p99 {res.get('scan_to_tx_ms_p99')} ms)")

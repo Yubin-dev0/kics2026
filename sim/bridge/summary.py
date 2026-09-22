@@ -104,16 +104,33 @@ def summarize(rows):
     out['min_range_m'] = round(min(mr), 4) if mr else None
     # N_col of the plan (5.3): entries into min_range < d_col, a consecutive stretch
     # counting once. This is the y axis of figure 2(b), so it is computed here and
-    # nowhere else.
-    n_col, inside = 0, False
-    for v in mr:
+    # nowhere else. Each entry also gives its time: N1 monotonic ns of that scan's
+    # arrival (t_scan_rx_ns), not sim_time, which /clock quantises to 0.1 s. The C3 merge
+    # moves these onto N3's clock (clock pair in the meta file, then the A9 offset) to
+    # compare them with t0 and the G window.
+    n_col, inside, t_col = 0, False, []
+    for r in scan:
+        v = _f(r['min_range'])
         if v is not None and v < D_COL_M:
             if not inside:
                 n_col += 1
+                t_col.append(int(r['t_scan_rx_ns']))
             inside = True
         else:
             inside = False
     out['n_col'] = n_col
+    # arrival at each waypoint: the first scan row whose wp_i has moved past it
+    t_wp, prev = [], None
+    for r in scan:
+        wi = _i(r['wp_i'])
+        if prev is not None and wi is not None and wi > prev:
+            t_wp.extend([int(r['t_scan_rx_ns'])] * (wi - prev))
+        prev = wi if wi is not None else prev
+    t_first = int(scan[0]['t_scan_rx_ns']) if scan else None
+    out['t_col_ns'] = t_col
+    out['t_wp_ns'] = t_wp
+    out['t_col_s'] = [round((t - t_first) / 1e9, 3) for t in t_col]
+    out['t_wp_s'] = [round((t - t_first) / 1e9, 3) for t in t_wp]
     out['sim_time_first'] = _f(scan[0]['sim_time']) if scan else None
     out['sim_time_last'] = _f(scan[-1]['sim_time']) if scan else None
     out['last_wp_i'] = _i(scan[-1]['wp_i']) if scan else None
