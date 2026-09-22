@@ -1,0 +1,234 @@
+{
+  "run_id": "4",
+  "stage": "B1",
+  "harness": "ros",
+  "target": "board",
+  "policy": 1,
+  "policy_name": "always_local",
+  "started": "2026-09-22T10:58:05+09:00",
+  "port": "/dev/serial/by-id/usb-STMicroelectronics_STM32_STLink_0669FF485775495067204114-if02",
+  "baud": 921600,
+  "busid": "2-3",
+  "proto_version_host": 2,
+  "expected_build": "Sep 16 2026 18:11:48 dbg",
+  "waypoints": [
+    [
+      1.2,
+      0.0
+    ],
+    [
+      1.2,
+      1.2
+    ],
+    [
+      -1.2,
+      1.2
+    ],
+    [
+      -1.2,
+      -1.2
+    ],
+    [
+      0.8,
+      -1.2
+    ]
+  ],
+  "git": "2431ae3",
+  "git_dirty": false,
+  "code_sha1": "ea85f1aa89eb",
+  "net_sha1": "a39f71805c4e",
+  "edge_sha1": "fb76fe0522bc",
+  "world_sha1": "6b66d107282a",
+  "edge": {
+    "edge": "none"
+  },
+  "policy_params": null,
+  "condition": {
+    "rtt_ms": null,
+    "load": null,
+    "rep": null
+  },
+  "note": "lab, board, policy 1",
+  "limits": {
+    "scan_step_s": 0.05,
+    "reply_timeout_ms": 200.0,
+    "bridge_wdog_ms": 150.0,
+    "jitter_p99_ms": 5.0,
+    "skip_ms": 75.0,
+    "u_p99_ms": 5.0,
+    "edge_deadline_ms": 50.0
+  },
+  "linux": {
+    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "python": "3.10.12",
+    "os": "Ubuntu 22.04.5 LTS",
+    "ip_route": [
+      "default via 172.23.0.1 dev eth0 proto kernel ",
+      "172.23.0.0/20 dev eth0 proto kernel scope link src 172.23.8.91"
+    ],
+    "port_realpath": "/dev/ttyACM0",
+    "port_holders": []
+  },
+  "windows": {
+    "power_overlay_ac": "ded574b5-45a0-4f42-8737-46345c09c238",
+    "power_overlay_dc": "ded574b5-45a0-4f42-8737-46345c09c238",
+    "power_mode_ac": "best_performance",
+    "power_mode_dc": "best_performance",
+    "on_ac_power": true,
+    "windows_adapters": [
+      {
+        "name": "Wi-Fi 5",
+        "status": "Not Present",
+        "desc": "Intel(R) Wi-Fi 7 BE201 320MHz"
+      },
+      {
+        "name": "Wi-Fi",
+        "status": "Up",
+        "desc": "Intel(R) Wi-Fi 7 BE201 320MHz"
+      },
+      {
+        "name": "Wi-Fi 2",
+        "status": "Not Present",
+        "desc": "Intel(R) Wi-Fi 7 BE201 320MHz"
+      },
+      {
+        "name": "Bluetooth 네트워크 연결",
+        "status": "Disconnected",
+        "desc": "Bluetooth Device (Personal Area Network)"
+      },
+      {
+        "name": "vEthernet (WSL (Hyper-V firewall))",
+        "status": "Up",
+        "desc": "Hyper-V Virtual Ethernet Adapter"
+      },
+      {
+        "name": "Wi-Fi 4",
+        "status": "Up",
+        "desc": "Intel(R) Wi-Fi 7 BE201 320MHz"
+      }
+    ],
+    "wsl_version": [
+      "WSL 버전: 2.7.14.0",
+      "커널 버전: 6.18.33.2-2",
+      "WSLg 버전: 1.0.73.2",
+      "MSRDC 버전: 1.2.7214",
+      "Direct3D 버전: 1.611.1-81528511",
+      "DXCore 버전: 10.0.26100.1-240331-1435.ge-release",
+      "Windows 버전: 10.0.26200.9457"
+    ],
+    "usbipd_version": "5.3.0-54+Branch.master.Sha.aa3db8b82c4cb5071fd31bc54211606c70886912.aa3db8b82c4cb5071fd31bc54211606c70886912",
+    "usbipd_busid_line": "2-3 0483:374b ST-Link Debug, USB 대용량 저장 장치, STMicroelectronics STLink V... Attached"
+  },
+  "env_errors": {},
+  "firmware": {
+    "proto_version": 2,
+    "build_id": "Sep 16 2026 18:11:48 dbg",
+    "sysclk_hz": 180000000
+  },
+  "rtt_watch": null,
+  "clock_pairs": {
+    "settle": {
+      "wall_ns": 1790042286853417200,
+      "mono_ns": 711551517354,
+      "read_ns": 862
+    },
+    "start": {
+      "wall_ns": 1790042286895952033,
+      "mono_ns": 711594052138,
+      "read_ns": 957
+    },
+    "end": {
+      "wall_ns": 1790042335945733746,
+      "mono_ns": 760643833767,
+      "read_ns": 1101
+    }
+  },
+  "finished": "2026-09-22T10:58:56+09:00",
+  "results": {
+    "lines": 980,
+    "scan_lines": 980,
+    "flag_lines": 0,
+    "lost": 0,
+    "tx_n": 979,
+    "tx_mean_ms": 50.051,
+    "tx_sd_ms": 0.299,
+    "tx_dev_p99_ms": 0.934,
+    "tx_dev_max_ms": 2.43,
+    "tx_skips": 0,
+    "scan_rx_n": 979,
+    "scan_rx_mean_ms": 50.051,
+    "scan_rx_sd_ms": 0.29,
+    "scan_rx_dev_p99_ms": 0.885,
+    "scan_rx_dev_max_ms": 2.404,
+    "scan_rx_skips": 0,
+    "sim_step_median_s": 0.05,
+    "sim_step_repeats": 0,
+    "scan_to_tx_ms_n": 980,
+    "scan_to_tx_ms_median": 0.074,
+    "scan_to_tx_ms_p99": 0.158,
+    "scan_to_tx_ms_max": 0.222,
+    "scan_to_tx_ms_min": 0.06,
+    "u_bound_ms_n": 980,
+    "u_bound_ms_median": 1.893,
+    "u_bound_ms_p99": 2.794,
+    "u_bound_ms_max": 3.176,
+    "u_bound_ms_min": 1.27,
+    "flag_to_tx_ms_n": 0,
+    "switches": 0,
+    "switch_us_n": 0,
+    "states": {
+      "RUN": 776,
+      "SLOW": 204,
+      "STOP": 0
+    },
+    "min_range_m": 0.2597,
+    "n_col": 0,
+    "sim_time_first": 5.161,
+    "sim_time_last": 54.111,
+    "last_wp_i": 4,
+    "settle": {
+      "mode": 1,
+      "switch_us": 0,
+      "n_sw": 1,
+      "bad_lines": 0
+    },
+    "bad_lines_delta": 0,
+    "n_sw_delta": 0,
+    "rtt_ms_n": 0,
+    "deadline_misses": 0,
+    "holds": 0,
+    "miss_rate_steps": 0.0,
+    "hold_rate": 0.0,
+    "rtt_late": 0,
+    "edge_age_steps_n": 0,
+    "rtt_win_ms_n": 0,
+    "rtt_degraded_steps": 0,
+    "t_det_rtt_s": null,
+    "local_steps": 980,
+    "edge_stop_steps": 0,
+    "wdog_during_run": 0,
+    "wdog_end_gap_ms": 150.8,
+    "bridge_stops": 0,
+    "result": "GOAL",
+    "duration_sim_s": 49.0,
+    "duration_mono_s": 49.05,
+    "waypoints_reached": "5/5",
+    "collided": false,
+    "stray_lines": 0,
+    "stray_samples": [],
+    "flag_events": 0
+  },
+  "power_check": "auto",
+  "verdict": {
+    "goal": true,
+    "no_collision": true,
+    "jitter": true,
+    "link": true,
+    "u_bound": true,
+    "settled": true,
+    "scan_driven": true,
+    "power": true
+  },
+  "aborted": null,
+  "pass": true
+}

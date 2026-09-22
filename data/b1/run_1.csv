@@ -1,0 +1,1 @@
+line,kind,seq,flag,t_scan_rx_ns,t_flag_rx_ns,t_uart_tx_ns,t_c_rx_ns,sim_time,x,y,yaw,wp_i,min_range,min_mm,local_v,local_w,edge_v,edge_w,edge_ok,edge_seq_used,t_send_ns,t_recv_ns,rtt_us,held,deadline_miss,rtt_min_us,rtt_win_us,rtt_degraded,t_det_rtt_ns,flag_seq,t_det_meta_ns,c_seq,v_out,w_out,mode,state,switch_us,n_sw,bad_lines,lost
