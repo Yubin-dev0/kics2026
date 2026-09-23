@@ -1,20 +1,24 @@
 # What the paper's two figures and one table read
 
 Everything on this page is drawn from one file, `data/sweep.csv`, one row per run
-(columns in `data/README.md`). Until the sweep of 2026-09-26 exists, write the scripts
-against `data/synthetic/sweep.csv`, which has the same header and the same 66 rows with
-invented values. On 9/26 the only change is the path.
+(columns in `data/README.md`). The sweep was run on 2026-09-23 (69 rows: 66 runs plus
+3 re-runs); `data/synthetic/sweep.csv` has the same header with invented values and is
+kept only for script tests.
 
 Check any file before drawing from it:
 
-    python3 analysis/sweep_index.py --check data/synthetic/sweep.csv
+    python3 analysis/sweep_index.py --check data/sweep.csv
 
 Scripts live in `analysis/` and write into `analysis/out/` (git-ignored). Each script
-takes the sweep file as its first argument and defaults to the synthetic one.
+takes the sweep file as its first argument and defaults to `data/sweep.csv`.
+`analysis/c3_summary.py` draws table 1 and figure 2; `analysis/c3_checks.py` runs the
+two checks quoted in `data/c3/NOTES.md`.
 
 ## Shared rules
 
-- Rows with `status` other than `valid` are dropped. Never quote a dropped run.
+- Rows with `status` other than `valid` are dropped, and so are the runs listed in
+  `analysis/excluded_runs.csv` (29, 42, 56; their re-runs 67-69 are in the file).
+  Never quote a dropped run. Reasons are in `data/c3/NOTES.md`.
 - Each condition has 3 repetitions. Plot the median as the line or bar and show the
   spread; with three points, plot the points themselves rather than a box.
 - The x axis of both panels is `rtt_ms`, the base RTT set with netem, with the five steps
@@ -31,25 +35,30 @@ takes the sweep file as its first argument and defaults to the synthetic one.
 - Two series over all `load = L1` rows: `a_ms` (metadata, the proposal) and `d_ms` (RTT
   window, the baseline). Both are recorded in every run whatever its policy, so all four
   policies' runs contribute points to both series.
-- What it has to show: A below D across the whole x range. If that fails, H1 fails and
-  section 1.3 of the plan says what happens next.
+- What it was meant to show: A below D across the whole x range. Measured (9/23): A is
+  below D in 23 of 60 L1 runs and the median A exceeds the median D at every base RTT
+  but 10 ms. H1 fails as stated; the paper reports the measured chain and the reason
+  (`data/c3/NOTES.md`, "Why A is mostly later than D"). The figure is kept as it is,
+  with the log y axis so the spread of A stays readable.
 
-## Figure 2(b), bottom panel: collisions (RQ2)
+## Figure 2(b), bottom panel: hold rate (RQ2)
 
-- y: `n_col`, collisions per run (entries into min_range < 0.15 m, a consecutive stretch
-  counting once).
+- y: `hold_rate`, the share of control steps in which the bridge held the last command
+  because the edge reply was late (percent).
 - Four curves, one per `policy`, over `load = L1` rows: 1 always local, 2 always edge,
   3 RTT window, 4 metadata flag.
-- What it has to show: policy 4 below policy 3, and near policy 1.
-- If policy 2 turns out not to collide even at 200 ms, the y axis becomes
-  `edge_stop_steps` (steps in edge mode where the safety rule would have stopped the
-  robot). That column is in the file, so the swap is one line. The decision is D19, taken
-  after B3 on 9/23; the loopback runs of 9/20 already showed no collisions at a steady
-  200 ms, so treat the swap as likely and keep it a one-line change.
+- Why not collisions: D19 (9/23, after B3) - the course produced no collision in any
+  run, policy 2 at 200 ms included (`n_col` = 0 in all 69 rows, min range 0.24-0.37 m),
+  so `n_col` has nothing to plot. `edge_stop_steps` was the planned fallback and is also
+  0 in every row. Option (ga) chosen by Yubin: hold rate.
+- What it shows (9/23): 14-28 % per run at L1 for every policy, no policy apart; the
+  four curves lie on top of each other. That is the finding, not a failure of the
+  plot: the policies differ in when they switch, not in how often the edge is late.
 
 ## Table 1: the timing chain
 
-Three rows, the L1 runs at base RTT 10, 60 and 200 ms; median over the repetitions.
+Three rows, the L1 runs at base RTT 10, 60 and 200 ms; median over the repetitions
+(`c3_summary.py` prints all five RTTs and the L2 row; pick the three for the paper).
 Columns A, B, U, C, D, G from `a_ms`, `b_ms`, `u_ms`, `c_ms`, `d_ms`, `g_ms`, then `n_sw`
 for policies 3 and 4 side by side, then N_false.
 

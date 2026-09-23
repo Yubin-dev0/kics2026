@@ -1,0 +1,4 @@
+run_id,stage,replaced_by,reason
+29,c3,67,bridge aborted at 2.8 s (cmd_vel publisher context invalid)
+42,c3,68,detector entered about 5 s before t0 (A -5220 ms)
+56,c3,69,detector entered about 5 s before t0 (A -5360 ms)
