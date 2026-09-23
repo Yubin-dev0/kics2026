@@ -1,0 +1,9 @@
+qdisc netem 8001: root refcnt 2 limit 10000 delay 30ms seed 14811058982932831589
+ Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+qdisc netem 8002: root refcnt 2 limit 10000 delay 30ms seed 3358984640962434847
+ Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+qdisc noqueue 0: dev lo root refcnt 2 
+qdisc netem 8002: dev eth0 root refcnt 2 limit 10000 delay 30ms seed 3358984640962434847
+qdisc netem 8001: dev wlan0 root refcnt 2 limit 10000 delay 30ms seed 14811058982932831589
