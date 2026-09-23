@@ -12,7 +12,8 @@ Check any file before drawing from it:
 Scripts live in `analysis/` and write into `analysis/out/` (git-ignored). Each script
 takes the sweep file as its first argument and defaults to `data/sweep.csv`.
 `analysis/c3_summary.py` draws table 1 and figure 2; `analysis/c3_checks.py` runs the
-two checks quoted in `data/c3/NOTES.md`.
+two checks quoted in `data/c3/NOTES.md`; `analysis/a0_select.py` is the A0 selection
+(metric and thresholds) over the B3 captures.
 
 ## Shared rules
 
