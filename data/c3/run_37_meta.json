@@ -1,0 +1,327 @@
+{
+  "run_id": "37",
+  "stage": "c3",
+  "harness": "ros",
+  "target": "board",
+  "policy": 1,
+  "policy_name": "always_local",
+  "started": "2026-09-23T16:58:13+09:00",
+  "port": "/dev/ttyACM0",
+  "baud": 921600,
+  "busid": "2-3",
+  "proto_version_host": 2,
+  "expected_build": "Sep 16 2026 18:11:48 dbg",
+  "waypoints": [
+    [
+      1.2,
+      0.0
+    ],
+    [
+      1.2,
+      1.2
+    ],
+    [
+      -1.2,
+      1.2
+    ],
+    [
+      -1.2,
+      -1.2
+    ],
+    [
+      0.8,
+      -1.2
+    ]
+  ],
+  "git": "07fdcf3",
+  "git_dirty": false,
+  "code_sha1": "cacf7c6e1ece",
+  "net_sha1": "a39f71805c4e",
+  "edge_sha1": "fb76fe0522bc",
+  "world_sha1": "6b66d107282a",
+  "edge": {
+    "edge": "udp",
+    "target": "10.99.0.4:47000",
+    "local_port": 46330,
+    "deadline_ms": 50.0,
+    "sent": 979,
+    "replied": 927,
+    "unanswered": 52,
+    "late": 927,
+    "steps": 979,
+    "holds": 215,
+    "misses": 979,
+    "bad": 0,
+    "unknown": 0,
+    "echo_mismatch": 0,
+    "out_of_order": 0,
+    "superseded": 162,
+    "send_errors": 0,
+    "rtt_ms_median": 440.105,
+    "rtt_ms_p99": 586.483,
+    "rtt_ms_max": 639.576,
+    "rtt_ms_min": 103.066,
+    "miss_rate": 1.0,
+    "miss_rate_steps": 1.0,
+    "hold_rate": 0.2196
+  },
+  "policy_params": {
+    "window_s": 2.0,
+    "baseline_s": 15.0,
+    "theta_high_ms": 20.0,
+    "theta_low_ms": 10.0
+  },
+  "condition": {
+    "rtt_ms": 100.0,
+    "load": "L1",
+    "rep": 1
+  },
+  "note": "",
+  "limits": {
+    "scan_step_s": 0.05,
+    "reply_timeout_ms": 200.0,
+    "bridge_wdog_ms": 150.0,
+    "jitter_p99_ms": 5.0,
+    "skip_ms": 75.0,
+    "u_p99_ms": 5.0,
+    "edge_deadline_ms": 50.0
+  },
+  "linux": {
+    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "python": "3.10.12",
+    "os": "Ubuntu 22.04.5 LTS",
+    "ip_route": [
+      "default via 172.23.0.1 dev eth0 proto kernel ",
+      "172.23.0.0/20 dev eth0 proto kernel scope link src 172.23.8.91"
+    ],
+    "port_realpath": "/dev/ttyACM0",
+    "port_holders": []
+  },
+  "windows": {
+    "power_overlay_ac": "ded574b5-45a0-4f42-8737-46345c09c238",
+    "power_overlay_dc": "ded574b5-45a0-4f42-8737-46345c09c238",
+    "power_mode_ac": "best_performance",
+    "power_mode_dc": "best_performance",
+    "on_ac_power": true,
+    "windows_adapters": [
+      {
+        "name": "Wi-Fi 5",
+        "status": "Not Present",
+        "desc": "Intel(R) Wi-Fi 7 BE201 320MHz"
+      },
+      {
+        "name": "Wi-Fi",
+        "status": "Up",
+        "desc": "Intel(R) Wi-Fi 7 BE201 320MHz"
+      },
+      {
+        "name": "Wi-Fi 2",
+        "status": "Not Present",
+        "desc": "Intel(R) Wi-Fi 7 BE201 320MHz"
+      },
+      {
+        "name": "Bluetooth 네트워크 연결",
+        "status": "Disconnected",
+        "desc": "Bluetooth Device (Personal Area Network)"
+      },
+      {
+        "name": "kics-n1",
+        "status": "Up",
+        "desc": "WireGuard Tunnel"
+      },
+      {
+        "name": "vEthernet (WSL (Hyper-V firewall))",
+        "status": "Up",
+        "desc": "Hyper-V Virtual Ethernet Adapter"
+      },
+      {
+        "name": "Wi-Fi 4",
+        "status": "Up",
+        "desc": "Intel(R) Wi-Fi 7 BE201 320MHz"
+      }
+    ],
+    "wsl_version": [
+      "WSL 버전: 2.7.14.0",
+      "커널 버전: 6.18.33.2-2",
+      "WSLg 버전: 1.0.73.2",
+      "MSRDC 버전: 1.2.7214",
+      "Direct3D 버전: 1.611.1-81528511",
+      "DXCore 버전: 10.0.26100.1-240331-1435.ge-release",
+      "Windows 버전: 10.0.26200.9457"
+    ],
+    "usbipd_version": "5.3.0-54+Branch.master.Sha.aa3db8b82c4cb5071fd31bc54211606c70886912.aa3db8b82c4cb5071fd31bc54211606c70886912",
+    "usbipd_busid_line": "2-3 0483:374b ST-Link Debug, USB 대용량 저장 장치, STMicroelectronics STLink V... Attached"
+  },
+  "env_errors": {},
+  "firmware": {
+    "proto_version": 2,
+    "build_id": "Sep 16 2026 18:11:48 dbg",
+    "sysclk_hz": 180000000
+  },
+  "flags": {
+    "n3": "192.168.60.1:47100",
+    "keepalives": 50,
+    "send_errors": 0,
+    "flags": 1,
+    "bad": 0
+  },
+  "rtt_watch": {
+    "window_s": 2.0,
+    "baseline_s": 15.0,
+    "theta_high_ms": 20.0,
+    "theta_low_ms": 10.0,
+    "rtt_min_us": 103066,
+    "enters": 1,
+    "leaves": 0,
+    "t_det_rtt_ns": 21029949092709
+  },
+  "clock_pairs": {
+    "settle": {
+      "wall_ns": 1790150294534272142,
+      "mono_ns": 21011945393225,
+      "read_ns": 897
+    },
+    "start": {
+      "wall_ns": 1790150294536685166,
+      "mono_ns": 21011947806553,
+      "read_ns": 282
+    },
+    "end": {
+      "wall_ns": 1790150343418813434,
+      "mono_ns": 21060829934529,
+      "read_ns": 816
+    }
+  },
+  "finished": "2026-09-23T16:59:03+09:00",
+  "results": {
+    "lines": 979,
+    "scan_lines": 979,
+    "flag_lines": 0,
+    "lost": 0,
+    "tx_n": 978,
+    "tx_mean_ms": 49.931,
+    "tx_sd_ms": 2.333,
+    "tx_dev_p99_ms": 0.947,
+    "tx_dev_max_ms": 49.139,
+    "tx_skips": 0,
+    "scan_rx_n": 978,
+    "scan_rx_mean_ms": 49.931,
+    "scan_rx_sd_ms": 2.331,
+    "scan_rx_dev_p99_ms": 0.923,
+    "scan_rx_dev_max_ms": 49.129,
+    "scan_rx_skips": 0,
+    "sim_step_median_s": 0.05,
+    "sim_step_repeats": 0,
+    "scan_to_tx_ms_n": 979,
+    "scan_to_tx_ms_median": 0.133,
+    "scan_to_tx_ms_p99": 0.249,
+    "scan_to_tx_ms_max": 0.334,
+    "scan_to_tx_ms_min": 0.06,
+    "u_bound_ms_n": 979,
+    "u_bound_ms_median": 1.853,
+    "u_bound_ms_p99": 2.82,
+    "u_bound_ms_max": 3.209,
+    "u_bound_ms_min": 1.329,
+    "flag_to_tx_ms_n": 0,
+    "switches": 0,
+    "switch_us_n": 0,
+    "states": {
+      "RUN": 779,
+      "SLOW": 200,
+      "STOP": 0
+    },
+    "min_range_m": 0.265,
+    "n_col": 0,
+    "t_col_ns": [],
+    "t_wp_ns": [
+      21016984749773,
+      21024093054347,
+      21036804982669,
+      21049718608053
+    ],
+    "t_col_s": [],
+    "t_wp_s": [
+      5.037,
+      12.145,
+      24.857,
+      37.771
+    ],
+    "sim_time_first": 21.462,
+    "sim_time_last": 70.362,
+    "last_wp_i": 4,
+    "settle": {
+      "mode": 1,
+      "switch_us": 25,
+      "n_sw": 57,
+      "bad_lines": 0
+    },
+    "bad_lines_delta": 0,
+    "n_sw_delta": 0,
+    "rtt_ms_n": 764,
+    "rtt_ms_median": 397.971,
+    "rtt_ms_p99": 483.321,
+    "rtt_ms_max": 495.904,
+    "rtt_ms_min": 103.066,
+    "deadline_misses": 979,
+    "holds": 215,
+    "miss_rate_steps": 1.0,
+    "hold_rate": 0.2196,
+    "rtt_late": 764,
+    "edge_age_steps_n": 974,
+    "edge_age_steps_median": 9.0,
+    "edge_age_steps_p99": 13,
+    "edge_age_steps_max": 15,
+    "edge_age_steps_min": 3,
+    "rtt_win_ms_n": 974,
+    "rtt_win_ms_median": 446.626,
+    "rtt_win_ms_p99": 455.448,
+    "rtt_win_ms_max": 456.087,
+    "rtt_win_ms_min": 104.564,
+    "rtt_degraded_steps": 617,
+    "t_det_rtt_s": 18.001,
+    "local_steps": 979,
+    "edge_stop_steps": 0,
+    "wdog_during_run": 0,
+    "wdog_end_gap_ms": 150.4,
+    "bridge_stops": 0,
+    "result": "GOAL",
+    "duration_sim_s": 48.95,
+    "duration_mono_s": 48.882,
+    "waypoints_reached": "5/5",
+    "collided": false,
+    "stray_lines": 0,
+    "stray_samples": [],
+    "flag_events": 1,
+    "edge_sent": 979,
+    "edge_replied": 927,
+    "edge_late": 927,
+    "edge_unanswered": 52,
+    "edge_miss_rate": 1.0,
+    "edge_miss_rate_steps": 1.0,
+    "edge_holds": 215,
+    "edge_misses": 979,
+    "edge_rtt_ms_median": 440.105,
+    "edge_rtt_ms_p99": 586.483,
+    "edge_rtt_ms_max": 639.576,
+    "t_col_wall_ns": [],
+    "t_wp_wall_ns": [
+      1790150299573628386,
+      1790150306681932960,
+      1790150319393861282,
+      1790150332307486666
+    ]
+  },
+  "power_check": "auto",
+  "verdict": {
+    "goal": true,
+    "no_collision": true,
+    "jitter": true,
+    "link": true,
+    "u_bound": true,
+    "settled": true,
+    "scan_driven": true,
+    "power": true
+  },
+  "aborted": null,
+  "pass": true
+}

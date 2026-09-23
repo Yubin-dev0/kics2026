@@ -1,0 +1,335 @@
+{
+  "run_id": "10",
+  "stage": "c3",
+  "harness": "ros",
+  "target": "board",
+  "policy": 4,
+  "policy_name": "n3_flag",
+  "started": "2026-09-23T15:35:57+09:00",
+  "port": "/dev/ttyACM0",
+  "baud": 921600,
+  "busid": "2-3",
+  "proto_version_host": 2,
+  "expected_build": "Sep 16 2026 18:11:48 dbg",
+  "waypoints": [
+    [
+      1.2,
+      0.0
+    ],
+    [
+      1.2,
+      1.2
+    ],
+    [
+      -1.2,
+      1.2
+    ],
+    [
+      -1.2,
+      -1.2
+    ],
+    [
+      0.8,
+      -1.2
+    ]
+  ],
+  "git": "07fdcf3",
+  "git_dirty": false,
+  "code_sha1": "cacf7c6e1ece",
+  "net_sha1": "a39f71805c4e",
+  "edge_sha1": "fb76fe0522bc",
+  "world_sha1": "6b66d107282a",
+  "edge": {
+    "edge": "udp",
+    "target": "10.99.0.4:47000",
+    "local_port": 40178,
+    "deadline_ms": 50.0,
+    "sent": 947,
+    "replied": 883,
+    "unanswered": 64,
+    "late": 541,
+    "steps": 947,
+    "holds": 209,
+    "misses": 605,
+    "bad": 0,
+    "unknown": 0,
+    "echo_mismatch": 0,
+    "out_of_order": 0,
+    "superseded": 144,
+    "send_errors": 0,
+    "rtt_ms_median": 344.02,
+    "rtt_ms_p99": 543.265,
+    "rtt_ms_max": 753.682,
+    "rtt_ms_min": 13.594,
+    "miss_rate": 0.6389,
+    "miss_rate_steps": 0.6389,
+    "hold_rate": 0.2207
+  },
+  "policy_params": {
+    "window_s": 2.0,
+    "baseline_s": 15.0,
+    "theta_high_ms": 20.0,
+    "theta_low_ms": 10.0
+  },
+  "condition": {
+    "rtt_ms": 10.0,
+    "load": "L1",
+    "rep": 3
+  },
+  "note": "",
+  "limits": {
+    "scan_step_s": 0.05,
+    "reply_timeout_ms": 200.0,
+    "bridge_wdog_ms": 150.0,
+    "jitter_p99_ms": 5.0,
+    "skip_ms": 75.0,
+    "u_p99_ms": 5.0,
+    "edge_deadline_ms": 50.0
+  },
+  "linux": {
+    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "python": "3.10.12",
+    "os": "Ubuntu 22.04.5 LTS",
+    "ip_route": [
+      "default via 172.23.0.1 dev eth0 proto kernel ",
+      "172.23.0.0/20 dev eth0 proto kernel scope link src 172.23.8.91"
+    ],
+    "port_realpath": "/dev/ttyACM0",
+    "port_holders": []
+  },
+  "windows": {
+    "power_overlay_ac": "ded574b5-45a0-4f42-8737-46345c09c238",
+    "power_overlay_dc": "ded574b5-45a0-4f42-8737-46345c09c238",
+    "power_mode_ac": "best_performance",
+    "power_mode_dc": "best_performance",
+    "on_ac_power": true,
+    "windows_adapters": [
+      {
+        "name": "Wi-Fi 5",
+        "status": "Not Present",
+        "desc": "Intel(R) Wi-Fi 7 BE201 320MHz"
+      },
+      {
+        "name": "Wi-Fi",
+        "status": "Up",
+        "desc": "Intel(R) Wi-Fi 7 BE201 320MHz"
+      },
+      {
+        "name": "Wi-Fi 2",
+        "status": "Not Present",
+        "desc": "Intel(R) Wi-Fi 7 BE201 320MHz"
+      },
+      {
+        "name": "Bluetooth 네트워크 연결",
+        "status": "Disconnected",
+        "desc": "Bluetooth Device (Personal Area Network)"
+      },
+      {
+        "name": "kics-n1",
+        "status": "Up",
+        "desc": "WireGuard Tunnel"
+      },
+      {
+        "name": "vEthernet (WSL (Hyper-V firewall))",
+        "status": "Up",
+        "desc": "Hyper-V Virtual Ethernet Adapter"
+      },
+      {
+        "name": "Wi-Fi 4",
+        "status": "Up",
+        "desc": "Intel(R) Wi-Fi 7 BE201 320MHz"
+      }
+    ],
+    "wsl_version": [
+      "WSL 버전: 2.7.14.0",
+      "커널 버전: 6.18.33.2-2",
+      "WSLg 버전: 1.0.73.2",
+      "MSRDC 버전: 1.2.7214",
+      "Direct3D 버전: 1.611.1-81528511",
+      "DXCore 버전: 10.0.26100.1-240331-1435.ge-release",
+      "Windows 버전: 10.0.26200.9457"
+    ],
+    "usbipd_version": "5.3.0-54+Branch.master.Sha.aa3db8b82c4cb5071fd31bc54211606c70886912.aa3db8b82c4cb5071fd31bc54211606c70886912",
+    "usbipd_busid_line": "2-3 0483:374b ST-Link Debug, USB 대용량 저장 장치, STMicroelectronics STLink V... Attached"
+  },
+  "env_errors": {},
+  "firmware": {
+    "proto_version": 2,
+    "build_id": "Sep 16 2026 18:11:48 dbg",
+    "sysclk_hz": 180000000
+  },
+  "flags": {
+    "n3": "192.168.60.1:47100",
+    "keepalives": 48,
+    "send_errors": 0,
+    "flags": 1,
+    "bad": 0
+  },
+  "rtt_watch": {
+    "window_s": 2.0,
+    "baseline_s": 15.0,
+    "theta_high_ms": 20.0,
+    "theta_low_ms": 10.0,
+    "rtt_min_us": 13593,
+    "enters": 1,
+    "leaves": 0,
+    "t_det_rtt_ns": 16094057585579
+  },
+  "clock_pairs": {
+    "settle": {
+      "wall_ns": 1790145358751261310,
+      "mono_ns": 16076162382374,
+      "read_ns": 882
+    },
+    "start": {
+      "wall_ns": 1790145358777334875,
+      "mono_ns": 16076188455877,
+      "read_ns": 1024
+    },
+    "end": {
+      "wall_ns": 1790145406176667753,
+      "mono_ns": 16123587788861,
+      "read_ns": 799
+    }
+  },
+  "finished": "2026-09-23T15:36:46+09:00",
+  "results": {
+    "lines": 948,
+    "scan_lines": 947,
+    "flag_lines": 1,
+    "lost": 0,
+    "tx_n": 946,
+    "tx_mean_ms": 50.052,
+    "tx_sd_ms": 0.287,
+    "tx_dev_p99_ms": 0.832,
+    "tx_dev_max_ms": 1.258,
+    "tx_skips": 0,
+    "scan_rx_n": 946,
+    "scan_rx_mean_ms": 50.052,
+    "scan_rx_sd_ms": 0.272,
+    "scan_rx_dev_p99_ms": 0.803,
+    "scan_rx_dev_max_ms": 1.255,
+    "scan_rx_skips": 0,
+    "sim_step_median_s": 0.05,
+    "sim_step_repeats": 0,
+    "scan_to_tx_ms_n": 947,
+    "scan_to_tx_ms_median": 0.134,
+    "scan_to_tx_ms_p99": 0.262,
+    "scan_to_tx_ms_max": 0.316,
+    "scan_to_tx_ms_min": 0.106,
+    "u_bound_ms_n": 948,
+    "u_bound_ms_median": 2.087,
+    "u_bound_ms_p99": 2.888,
+    "u_bound_ms_max": 3.298,
+    "u_bound_ms_min": 1.273,
+    "flag_to_tx_ms_n": 1,
+    "flag_to_tx_ms_median": 0.0734,
+    "flag_to_tx_ms_p99": 0.0734,
+    "flag_to_tx_ms_max": 0.0734,
+    "flag_to_tx_ms_min": 0.0734,
+    "switches": 1,
+    "switch_us_n": 1,
+    "switch_us_median": 34,
+    "switch_us_p99": 34,
+    "switch_us_max": 34,
+    "switch_us_min": 34,
+    "states": {
+      "RUN": 780,
+      "SLOW": 167,
+      "STOP": 0
+    },
+    "min_range_m": 0.2585,
+    "n_col": 0,
+    "t_col_ns": [],
+    "t_wp_ns": [
+      16081193098650,
+      16087650290527,
+      16099562563722,
+      16112576238871
+    ],
+    "t_col_s": [],
+    "t_wp_s": [
+      5.005,
+      11.462,
+      23.374,
+      36.388
+    ],
+    "sim_time_first": 23.258,
+    "sim_time_last": 70.558,
+    "last_wp_i": 4,
+    "settle": {
+      "mode": 0,
+      "switch_us": 25,
+      "n_sw": 24,
+      "bad_lines": 0
+    },
+    "bad_lines_delta": 0,
+    "n_sw_delta": 1,
+    "rtt_ms_n": 738,
+    "rtt_ms_median": 314.066,
+    "rtt_ms_p99": 391.253,
+    "rtt_ms_max": 449.455,
+    "rtt_ms_min": 13.593,
+    "deadline_misses": 605,
+    "holds": 209,
+    "miss_rate_steps": 0.6389,
+    "hold_rate": 0.2207,
+    "rtt_late": 396,
+    "edge_age_steps_n": 946,
+    "edge_age_steps_median": 7.0,
+    "edge_age_steps_p99": 11,
+    "edge_age_steps_max": 16,
+    "edge_age_steps_min": 1,
+    "rtt_win_ms_n": 946,
+    "rtt_win_ms_median": 350.2,
+    "rtt_win_ms_p99": 360.222,
+    "rtt_win_ms_max": 360.844,
+    "rtt_win_ms_min": 15.218,
+    "rtt_degraded_steps": 590,
+    "t_det_rtt_s": 17.869,
+    "local_steps": 588,
+    "edge_stop_steps": 0,
+    "wdog_during_run": 0,
+    "wdog_end_gap_ms": 151.2,
+    "bridge_stops": 0,
+    "result": "GOAL",
+    "duration_sim_s": 47.35,
+    "duration_mono_s": 47.399,
+    "waypoints_reached": "5/5",
+    "collided": false,
+    "stray_lines": 0,
+    "stray_samples": [],
+    "flag_events": 1,
+    "edge_sent": 947,
+    "edge_replied": 883,
+    "edge_late": 541,
+    "edge_unanswered": 64,
+    "edge_miss_rate": 0.6389,
+    "edge_miss_rate_steps": 0.6389,
+    "edge_holds": 209,
+    "edge_misses": 605,
+    "edge_rtt_ms_median": 344.02,
+    "edge_rtt_ms_p99": 543.265,
+    "edge_rtt_ms_max": 753.682,
+    "t_col_wall_ns": [],
+    "t_wp_wall_ns": [
+      1790145363781977648,
+      1790145370239169525,
+      1790145382151442720,
+      1790145395165117869
+    ]
+  },
+  "power_check": "auto",
+  "verdict": {
+    "goal": true,
+    "no_collision": true,
+    "jitter": true,
+    "link": true,
+    "u_bound": true,
+    "settled": true,
+    "scan_driven": true,
+    "power": true
+  },
+  "aborted": null,
+  "pass": true
+}

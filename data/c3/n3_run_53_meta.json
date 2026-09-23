@@ -1,0 +1,76 @@
+{
+  "run_id": 53,
+  "stage": "C3",
+  "node": "N3",
+  "harness": "detector",
+  "started": "2026-09-23T02:38:28+09:00",
+  "finished": "2026-09-23T02:39:58+09:00",
+  "iface": "wlan0",
+  "filter": "udp port 51820",
+  "tcpdump": null,
+  "tcpdump_stderr": "tcpdump: listening on wlan0, link-type EN10MB (Ethernet), snapshot length 96 bytes\n2086 packets captured\n2086 packets received by filter\n0 packets dropped by kernel",
+  "pcap": "/home/yubin/n3runs/c3/n3_run_53.pcap",
+  "git": "07fdcf3",
+  "note": "",
+  "detector": {
+    "window_s": 1.0,
+    "step_s": 0.1,
+    "interval_s": 0.1,
+    "baseline_s": 5.0,
+    "theta_high_ms": 20.0,
+    "theta_low_ms": 10.0,
+    "metric": "p90",
+    "dir": "both",
+    "burst_eps_ms": 5.0,
+    "ap_net": "192.168.60.",
+    "baseline_ms": {
+      "up": 51.66348047058823,
+      "down": 51.79171137254902,
+      "pair": 202.84891356862744
+    },
+    "first_pkt_ns": 1790098723970946048,
+    "flow_start_ns": 1790098734270946048,
+    "packets": {
+      "up": 1086,
+      "down": 1000,
+      "bytes_up": 121312,
+      "bytes_down": 96000,
+      "other": 0,
+      "control": 1,
+      "paired": 1000,
+      "unpaired_up": 65,
+      "unpaired_down": 0
+    },
+    "steps": 742,
+    "enters": 1,
+    "leaves": 0,
+    "t_det_meta_ns": 1790098751908587005
+  },
+  "t_start_wall_ns": 1790098708240685311,
+  "t_run_start_ns": 1790098733770258240,
+  "run_peer": "192.168.60.90:57271",
+  "keepalives": 55,
+  "load": {
+    "kind": "L1",
+    "n5": "192.168.60.55",
+    "server": "192.168.60.1",
+    "proto": "udp",
+    "rate": "84M",
+    "seconds": 45.0,
+    "t0_s_planned": 17.0,
+    "n5_messages": [
+      {
+        "t_ns": 1790098750895414701,
+        "msg": "A,L1,53,1790152924850066706,5189*05"
+      },
+      {
+        "t_ns": 1790098796992413247,
+        "msg": "D,L1,53,1790152970945122620,0,74.0*04"
+      }
+    ]
+  },
+  "t0_ns": 1790098750788385463,
+  "t_det_meta_ns": 1790098751908587005,
+  "a_ms": 1120.202,
+  "flags_sent": 1
+}

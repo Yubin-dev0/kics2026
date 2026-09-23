@@ -1,0 +1,76 @@
+{
+  "run_id": 56,
+  "stage": "C3",
+  "node": "N3",
+  "harness": "detector",
+  "started": "2026-09-23T02:46:36+09:00",
+  "finished": "2026-09-23T02:48:06+09:00",
+  "iface": "wlan0",
+  "filter": "udp port 51820",
+  "tcpdump": null,
+  "tcpdump_stderr": "tcpdump: listening on wlan0, link-type EN10MB (Ethernet), snapshot length 96 bytes\n1888 packets captured\n1888 packets received by filter\n0 packets dropped by kernel",
+  "pcap": "/home/yubin/n3runs/c3/n3_run_56.pcap",
+  "git": "07fdcf3",
+  "note": "",
+  "detector": {
+    "window_s": 1.0,
+    "step_s": 0.1,
+    "interval_s": 0.1,
+    "baseline_s": 5.0,
+    "theta_high_ms": 20.0,
+    "theta_low_ms": 10.0,
+    "metric": "p90",
+    "dir": "both",
+    "burst_eps_ms": 5.0,
+    "ap_net": "192.168.60.",
+    "baseline_ms": {
+      "up": 52.034499764705885,
+      "down": 52.07571576470588,
+      "pair": 202.33919247058824
+    },
+    "first_pkt_ns": 1790099200671782912,
+    "flow_start_ns": 1790099220571782912,
+    "packets": {
+      "up": 982,
+      "down": 906,
+      "bytes_up": 109808,
+      "bytes_down": 86848,
+      "other": 0,
+      "control": 2,
+      "paired": 904,
+      "unpaired_up": 56,
+      "unpaired_down": 0
+    },
+    "steps": 856,
+    "enters": 2,
+    "leaves": 2,
+    "t_det_meta_ns": 1790099231717138710
+  },
+  "t_start_wall_ns": 1790099196329135519,
+  "t_run_start_ns": 1790099220061739152,
+  "run_peer": "192.168.60.90:57281",
+  "keepalives": 50,
+  "load": {
+    "kind": "L1",
+    "n5": "192.168.60.55",
+    "server": "192.168.60.1",
+    "proto": "udp",
+    "rate": "84M",
+    "seconds": 45.0,
+    "t0_s_planned": 17.0,
+    "n5_messages": [
+      {
+        "t_ns": 1790099237184226502,
+        "msg": "A,L1,56,1790153411134209482,5201*06"
+      },
+      {
+        "t_ns": 1790099283287558633,
+        "msg": "D,L1,56,1790153457229455671,0,74.6*0E"
+      }
+    ]
+  },
+  "t0_ns": 1790099237076840211,
+  "t_det_meta_ns": 1790099231717138710,
+  "a_ms": -5359.702,
+  "flags_sent": 4
+}
