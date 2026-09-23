@@ -77,11 +77,11 @@ pair in the window; before the baseline. Empty means not computable, not zero.
 |---|---|---|---|
 | window_s | 1 s | plan v3 6.2 step 1 (W_f) | confirmed (plan) |
 | step_s | 0.1 s | plan v3 6.2, sliding 100 ms | confirmed (plan) |
-| interval_s | 0.1 s | RFC 8289 default interval (plan v3 6.2 step 2); `test_detector.py` shows 3 s rejects a 2.5 s L2 | provisional, A0 |
-| baseline_s | 5 s | plan v3 8.3: no-load reference is the first 5 s of the flow | provisional, A0 |
-| theta_high / theta_low | 20 / 10 ms | the same provisional pair as `sim/bridge/rttwatch.py` on N1 (plan: one pair for policies 3 and 4) | provisional, A0 |
-| metric | med | plan v3 6.2: median packet interval of the window minus the baseline. See the limit below | provisional, A0 (D4) |
-| dir | both | the larger excess of the two directions; A0 may fix one | provisional, A0 |
+| interval_s | 0.1 s | RFC 8289 default interval (plan v3 6.2 step 2); `test_detector.py` shows 3 s rejects a 2.5 s L2 | confirmed at A0 (9/23, unchanged) |
+| baseline_s | 5 s | plan v3 8.3: no-load reference is the first 5 s of the flow | confirmed at A0 (9/23, unchanged) |
+| theta_high / theta_low | 20 / 10 ms | the same pair as `sim/bridge/rttwatch.py` on N1 (plan: one pair for policies 3 and 4); A0 (9/23) kept it: 20 is the smallest theta_high with no entry in the no-load runs, theta_low = theta_high / 2 | confirmed at A0 (9/23) |
+| metric | p90 | A0 (9/23, D4): replay of B3 runs 1-4 (no load) and 5, 7, 8 (D19, L1 at 200 ms) over `--metric {med,p90,mad,pair}`. p90 20/10 was the only metric to pass both rules (no entry in the no-load runs, entry in all three D19 runs), median A 1720 ms; med 20/10 entered in 3/3 but with A 3820-16838 ms (median 5717); pair gave false entries in no-load runs 1 and 2 at every theta. The plan's median rule (plan v3 6.2) is replaced; the paper says "90th percentile of the 1 s window's packet intervals" | confirmed at A0 (9/23), C1 and C3 ran with it |
+| dir | both | the larger excess of the two directions | confirmed at A0 (9/23, unchanged) |
 | burst_eps_ms | 5 ms | intervals under this are one burst; recorded only | provisional |
 | PAIR_MAX_S | 1.5 s | an unanswered request older than this is dropped from pairing; 30 periods of 50 ms | provisional |
 | t0_s | 17 s | plan v5 4.1 puts t0 at 15 s of the run. The keepalive that marks the run start on N3 begins before the bridge's settle line and first scan, 1-3 s ahead of N1's t = 0, so 15 s after the keepalive could fall inside N1's 15 s RTT baseline, during which the watcher cannot enter and D would be inflated. 17 s keeps t0 past it; `sweep_index.py` prints t0 on N1's clock for every run as the check | provisional: t0 is also a design choice against the corner arrival times (decision list of 9/22) |
@@ -99,24 +99,41 @@ q_min < theta_low (double threshold, TCP Vegas); the first entry stamps `t_det_m
 A window without packets decides nothing: on N3 an empty window almost always means the
 run is over, unlike the RTT watcher on N1 where it means the edge stopped answering.
 
+Judging window (rule 1, chosen 2026-09-23 13:18, before the A0 data): entries count only
+while the robot flow is live, from the first to the last window with at least 5 packets
+each way. The detector keeps capturing after the bridge has reached GOAL (it stops on its
+own `--seconds`), and stray packets in that tail can produce an entry that says nothing
+about the run: B3 run 3's full file has one entry at 67.0 s, after the flow ended at
+56.4 s, and none while the flow was live. A0, B3-4 and the sweep analysis trim
+`windows.csv` to the last flow window before replaying or counting. The untrimmed count
+is kept in the runs.csv memo of that run.
+
 Limit of the interval median, to be weighed at A0 with real captures: a packet interval
 changes only while the queue delay is changing. A queue that grows by 150 ms over 3 s
 shifts the intervals of the 20 Hz flow by 150/3000 x 50 = 2.5 ms and then, once the delay
 holds, the intervals are 50 ms again. `test_detector.py` case 2 shows the median never
 entering on such a ramp while `pair` (the reply's wait in N3's queue, measured directly)
 enters 1.0 s after t0. p90 and mad respond to the jitter that comes with a full queue.
-Every window records all of them, so A0 replays the first L1 captures with
-`--replay-windows ... --metric {med,p90,mad,pair}` and picks the metric and thresholds
-before C1; the sweep then runs one fixed choice. Whatever is chosen is written down here.
+Every window records all of them, so A0 replayed the D19 captures with
+`--replay-windows ... --metric {med,p90,mad,pair}` and picked p90 20/10 (parameter table
+above); C1 and the C3 sweep ran with that one choice.
+
+What the sweep then showed (`data/c3/NOTES.md`, `analysis/c3_checks.py`): under L1 the
+edge RTT climbs by about 340 ms, but `q_hat` with p90 stays at a median of 9-34 ms in the
+3 s after t0 across the 15 policy-4 L1 runs, i.e. around theta_high. The interval metric
+sees the change of the queueing delay and the burstiness it brings, not the delay itself,
+so it hovers at the threshold once the queue is full. That is the first reason A came
+out later than D in most runs; the paper reports it as a property of header-only
+detection on this path.
 
 ## Pass criteria (A7, plan v5 7.3)
 
 | ID | criterion | basis | status |
 |---|---|---|---|
-| A7-1 | a 60 s pcap is replayed in under 5 s (`--replay`) | plan: "60 s pcap processed within 5 s" | synthetic 2400 packets in 0.04 s on the sandbox; to be timed once on N3 |
-| A7-2 | no-load run: after the baseline, q_hat stays within 10% of the 50 ms period (`abs(q_hat) < 5 ms` for med) and the detector never enters | plan: "no-load figures stable, window to window < 10%"; A5-3b is the same check for the RTT watcher | pending: first B3 run with the detector observing |
-| A7-3 | tcpdump reports 0 packets dropped by the kernel over the run | the capture must be complete for pairing and intervals | pending |
-| A7-4 | the N1 keepalive is seen, the flag reaches N1 (`flags` in the N1 meta) and `t_det_meta_ns` in N1's flag line equals `t_det_ns` in `n3_run_N_flags.csv` | C1 flag path; the same number on both sides is what B is computed from | pending C1 |
+| A7-1 | a 60 s pcap is replayed in under 5 s (`--replay`) | plan: "60 s pcap processed within 5 s" | synthetic 2400 packets in 0.04 s on the sandbox; not timed on N3 (the live detector kept up with every run, `steps` = run length / 0.1 s in each meta file) |
+| A7-2 | no-load run: after the baseline, q_hat stays within 10% of the 50 ms period (`abs(q_hat) < 5 ms` for med) and the detector never enters | plan: "no-load figures stable, window to window < 10%"; A5-3b is the same check for the RTT watcher | pass: B3 run 4 (policy 4, no load, new baseline rule) max abs q_hat 0.456 ms, no entry; runs 1-3 replayed with the same rule: no entry while the flow was live |
+| A7-3 | tcpdump reports 0 packets dropped by the kernel over the run | the capture must be complete for pairing and intervals | pass: 0 dropped in all 71 N3 meta files of C1 and C3 (and B3 runs 1-8) |
+| A7-4 | the N1 keepalive is seen, the flag reaches N1 (`flags` in the N1 meta) and `t_det_meta_ns` in N1's flag line equals `t_det_ns` in `n3_run_N_flags.csv` | C1 flag path; the same number on both sides is what B is computed from | pass: every flag line the bridge logged in C1 run 2 and the 18 policy-4 C3 runs (35 lines) carries the same t_det_ns as the N3 flags file; C1 run 2 received 8 of 10 flags, fseq 9-10 sent after the bridge ended (`data/c3/NOTES.md`) |
 
 ## Validation
 
@@ -142,7 +159,10 @@ before C1; the sweep then runs one fixed choice. Whatever is chosen is written d
   the meta file of the first real run.
 - On the wlan0 egress the capture point is after the qdisc: what a reply waited in netem
   or in the driver's back-pressured queue is visible in `pair_*`, what it waits inside the
-  Wi-Fi firmware is not. Which of the two the Pi 5 shows under L1 is an A8/A0 finding.
+  Wi-Fi firmware is not. A8 (9/23) put numbers on this: of the ~340 ms L1 rise, about
+  85 ms is netem queue (visible) and about 250 ms sits below the qdisc in the Wi-Fi
+  driver/firmware (invisible to N3). This is a measurement-point limit of the setup and
+  goes into the paper's limitations.
 - N1's keepalive starts with the bridge, 1-3 s before the run's first scan; the run start
   N3 records is that keepalive. The C3 merge reports t0 on N1's clock too
   (`analysis/sweep_index.py`, `t0_n1_s`), which must be over 15 s for the RTT baseline.

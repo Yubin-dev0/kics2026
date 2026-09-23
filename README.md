@@ -24,7 +24,9 @@ and switching robot controllers accordingly. KICS 2026 Fall.
 - Filenames, paths, commit messages and docs are in English.
 
 ## Status
-A10 passed on the lab PC and N3 (Pi 5) is up: A4 and A6 passed, A5 passed A5-1 to A5-3
-with A5-4 (USB path after WireGuard) open (2026-09-22). B1 complete (board runs 2-4).
-See `net/README.md`, `sim/bridge/README.md`, `edge/README.md`, `fw/NOTES.md`; A2
-criteria in `fw/README.md`, A1 in `sim/NOTES.md`.
+All experiments are done (2026-09-23): A4-A9 and A0 passed, B3 and D19 decided the
+figure 2(b) axis, C1 ran the flag path and C3 the 66-run sweep (`data/sweep.csv`, 69
+rows with 3 re-runs). Results and their reading: `data/c3/NOTES.md`; table 1 and figure 2:
+`analysis/c3_summary.py`, `analysis/FIGURES.md`. Stage verdicts: `net/README.md`,
+`capture/README.md`, `load/README.md`, `sim/bridge/README.md`, `edge/README.md`,
+`fw/NOTES.md`; A2 criteria in `fw/README.md`, A1 in `sim/NOTES.md`. Next: the paper.

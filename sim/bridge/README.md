@@ -53,8 +53,9 @@ often it would have (`rtt_degraded`).
 Watcher rule (plan 4.3, D9, D10): RTT_min = smallest `rtt_us` while the run is younger
 than `--baseline-s` (15 s, plan 4.1: t0); RTT_win = mean of `rtt_us` over the last
 `--window-s` (2 s); after the baseline, RTT_win - RTT_min > `--theta-high-ms` enters
-local, < `--theta-low-ms` returns to edge. theta 20 / 10 ms are provisional until A0
-(9/24); each run records the values it used in the meta file (`policy_params`). Held
+local, < `--theta-low-ms` returns to edge. theta 20 / 10 ms were kept at A0 (9/23,
+`capture/README.md`), so policies 3 and 4 share one pair; each run records the values it
+used in the meta file (`policy_params`). Held
 steps add no sample; a window with no sample at all (edge silent) counts as degraded.
 
 Stops: a C line with state 3 (board watchdog) sets `/cmd_vel` to zero at once. If no C
@@ -279,22 +280,56 @@ switches, flag-to-UART 46-65 us, rtt recorded on 952 of 956 steps, GOAL. Policy 
 steady test delay of 200 ms: GOAL, no collision, no STOP step, commands 5 steps old
 (both rules) -- see Known constraints.
 
+## B3, D19, C1 and C3 (2026-09-23)
+
+B3 ran the bridge over the tunnel with the board (busid 2-3), the MLP edge controller
+and the N3 detector observing. Runs 1-4 (no load): all GOAL 5/5, no collision, min range
+0.264-0.268 m, lost 0, edge RTT median 7.5 ms, holds 3 of 907 steps in run 1, watcher
+window max 16.83 ms (excess about 13 ms, under theta_high) in run 4. Run 4 is the first
+with the detector baseline rule of patch 0016 (`capture/README.md`): live entries 0.
+The N1-N2 USB cable was replaced before run 4 (loose connector); run 4 and everything
+after use the new cable.
+
+D19 (runs 5, 7, 8: policy 2 at 200 ms under L1, netem limit 1350): all three GOAL with 0
+collisions (run 5: min range 0.297 m, edge RTT median 207.8 / p99 751.8 ms, holds 209 of
+1016). Run 6 is void (the detector timed out before the bridge started, so L1 never
+ran). Decided 9/23 14:09, before C3 (option ga): keep the course, figure 2(b) plots the
+hold rate (steps run on a held command / steps sent) per policy, with the minimum
+distance as a secondary figure; the collision count is still reported and is 0 in every
+run of the sweep. `analysis/FIGURES.md` has the axis.
+
+C1 (RTT 60, L1, p90 20/10, netem limit 830), the flag path:
+
+| ID | criterion | result |
+|---|---|---|
+| C1-1 | every flag N3 sends while the bridge runs reaches N1 | pass, run 2: 8 of 10 flags logged; fseq 9 and 10 were sent 0.8 and 1.1 s after the bridge ended (`data/c3/NOTES.md`, `analysis/c3_checks.py`) |
+| C1-2 | each flag line switches the board once (flag lines = switches) | pass, run 2: 8 flag lines, 8 switches, C median 35.5 us (max 37) |
+| C1-3 | policy 3 run reaches GOAL with the watcher switching | pass, run 3: A 21780, D 749 ms, holds 23.8%, C 33 us |
+| C1-4 | B recorded | run 2: B 343.5 ms against 30-40 ms expected; the flag leaves N3 through the same wlan0 queue as the L1 load (D5) and inherits its queueing delay, matching the ~340 ms edge RTT rise |
+| C1-5 | hold rate of policy 3 against policy 4 | no difference: 23.8% against 24.1% (0.3 points, below the run-to-run spread) |
+
+Run 1 (policy 3) is `check`: Gazebo and N4 were not restarted before it (A 15120, D 921
+ms, holds 20.9%); run 3 repeats it. Clock run 0: delta -54174235.547 ms, sd 0.15 ms.
+
+C3, the sweep (runs 1-69, 66 used): results, exclusions and the two checks behind the
+interpretation are in `data/c3/NOTES.md`; table 1 and figure 2 come from
+`analysis/c3_summary.py`. In short: A is later than D in most runs (median A above median
+D at every base RTT but 10 ms), G > 0 in 3 of 15 policy-4 L1 runs, B 69-367 ms growing
+with RTT, C 31-36 us on every switch, hold rate 14-28% at L1 with no policy apart,
+collisions 0.
+
 ## Known constraints
 
 - The board's usbipd busid depends on the laptop USB port and controller numbering: 1-3 at
   home, 2-3 in the lab (2026-09-22). Pass `--busid` to `bridge.node` and `bridge.env`, or the
   meta file records the wrong device.
 
-- On the A1 course a steady 200 ms delay did not make policy 2 collide in the dry run
-  (min_range 0.27 m, no STOP step, either rule): between waypoints the stale command is
-  the same command, and the obstacles sit beside the path. The dry run has ideal
-  kinematics, so Gazebo (B3, 9/23) has the last word, but the fallback y axis of plan
-  7.1 (edge-mode STOP steps) was zero here too. If B3 confirms it, figure 2(b) needs a
-  course change (an obstacle the local rule has to act on) or a load pattern with jitter
-  rather than a fixed delay; decide before the sweep script is written (D19).
-- theta_high / theta_low of the watcher are provisional (20 / 10 ms) until A0.
-- The edge datagram format and port 47000 are provisional until B3 has run over the N3
-  path. N4 must echo `seq` and `t_send_ns` unchanged, or the round trip cannot be read.
+- On the A1 course a steady 200 ms delay did not make policy 2 collide in the dry run,
+  and Gazebo agreed at D19 (section above): the course cannot show a collision
+  difference between policies. Figure 2(b) plots the hold rate instead.
+- The edge datagram format and port 47000 are confirmed: B3, C1 and C3 ran over the N3
+  path and the tunnel with them. N4 must echo `seq` and `t_send_ns` unchanged, or the
+  round trip cannot be read.
 - The edge controller is the learned MLP (decided 9/22); a follower, if ever used, runs
   with no speed rule (D21). The bridge cannot see either; record the controller line the
   server prints (with the weights SHA-1) in `--note`.
@@ -309,6 +344,9 @@ steady test delay of 200 ms: GOAL, no collision, no STOP step, commands 5 steps 
   is checked on the first board run; if interop fails, `--power-confirmed` records a manual
   check.
 - `t_c_rx_ns` includes the Python read path, so the U bound errs on the long side.
-- Jitter in B1 is measured without network traffic in WSL2; B3 and later repeat it under
-  load.
+- Jitter in B1 is measured without network traffic in WSL2. Under the tunnel and load
+  (B3, C1, C3) the scan callback's spread is larger than B1's (sd 2.3 ms against 0.29 ms
+  in B3 run 1) and some runs show one deviation of about 49 ms (run 2, 13, 24, 37 of C3,
+  `jitter` verdict True, one skipped scan each). The cause is not traced; the runs are
+  kept because the U bound and the lost count are unaffected.
 - Restart Gazebo before every run so the robot starts at the origin, as in A1.
