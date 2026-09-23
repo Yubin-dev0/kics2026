@@ -158,6 +158,20 @@ def main():
         first, en, le = D.replay_windows(wpath, args(metric='med'))
         ok &= check(first is None, 'windows replay (med): no entry, as in the packet replay')
 
+    # 4b. a WireGuard keepalive 12 s before the flow must not start the baseline (B3 run 1, 9/23)
+    early = [(T_START - 12_000_000_000, N1, 51820, N4, 51820, 32)]
+    det = D.Detector(args(metric='pair'))
+    D.replay(det, early + flow(delay_down=l1), t0_ns)
+    ok &= check(det.baseline and det.baseline['pair'] is not None and det.enters == 1,
+                f"early keepalive: baseline {det.baseline}, enters {det.enters}, A = "
+                f"{None if det.t_det_meta_ns is None else (det.t_det_meta_ns - t0_ns) / 1e6} ms")
+    with tempfile.TemporaryDirectory() as d:
+        wpath = os.path.join(d, 'w.csv')
+        D.write_windows(wpath, det.rows)
+        first, en, le = D.replay_windows(wpath, args(metric='pair'))
+        ok &= check(first is not None and first[0] == det.t_det_meta_ns,
+                    f'early keepalive: windows replay finds the same entry {first}')
+
     # 5. line parser
     p = D.parse_line('1758600000.123456 IP 192.168.60.23.51820 > 192.168.50.4.51820: UDP, length 160')
     ok &= check(p == (1758600000123456000, '192.168.60.23', 51820, '192.168.50.4', 51820, 160),

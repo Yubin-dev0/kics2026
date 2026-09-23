@@ -87,6 +87,13 @@ pair in the window; before the baseline. Empty means not computable, not zero.
 | t0_s | 17 s | plan v5 4.1 puts t0 at 15 s of the run. The keepalive that marks the run start on N3 begins before the bridge's settle line and first scan, 1-3 s ahead of N1's t = 0, so 15 s after the keepalive could fall inside N1's 15 s RTT baseline, during which the watcher cannot enter and D would be inflated. 17 s keeps t0 past it; `sweep_index.py` prints t0 on N1's clock for every run as the check | provisional: t0 is also a design choice against the corner arrival times (decision list of 9/22) |
 | lag_ms | 30 ms | live only: a step is evaluated this long after its end so that tcpdump lines still in the pipe land in it | provisional |
 
+The baseline starts at the first window that holds the robot flow (at least
+`FLOW_MIN_PKTS` = 5 packets each way in the 1 s window), not at the first packet captured:
+with the tunnel up, a WireGuard keepalive or handshake can come many seconds before the
+bridge starts sending. B3 run 1 (2026-09-23) started its baseline on such a packet, found
+no flow in the first 5 s and kept every baseline empty, so the live detector could not
+decide. Its windows file is intact; `--replay-windows` with this rule re-decides it.
+
 Decision, after the baseline: `degraded` enters when q_min > theta_high and leaves when
 q_min < theta_low (double threshold, TCP Vegas); the first entry stamps `t_det_meta_ns`.
 A window without packets decides nothing: on N3 an empty window almost always means the

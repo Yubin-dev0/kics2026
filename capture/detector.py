@@ -31,6 +31,8 @@ Rule (per step of step_s, over the last window_s of packets, after the baseline)
              queue, minus its baseline. A window records every one of these, so A0 can
              re-decide a run with --replay-windows and choose.
   q_min      smallest q_hat over the last interval_s (RFC 8289 interval)
+  baseline   starts at the first window holding the robot flow (FLOW_MIN_PKTS each way),
+             not at the first packet: WireGuard keepalives come before the bridge sends
   degraded   q_min > theta_high enters, q_min < theta_low leaves (double threshold)
   a window with fewer than two packets in a direction has no interval and decides nothing
   (unlike the RTT watcher on N1, an empty window here most often means the run is over)
@@ -70,6 +72,7 @@ ROBOT_FILTER = 'udp port 51820'   # WireGuard, A5-2
 AP_NET = '192.168.60.'  # net/README.md topology: wlan0 side addresses
 LOADS = {'L1': 45.0, 'L2': 2.5}   # seconds; L1 plan v5 5.1, L2 provisional (2 to 3 s)
 WG_CONTROL_LENS = {32, 92, 148}   # WireGuard keepalive, handshake response, handshake initiation
+FLOW_MIN_PKTS = 5       # a 1 s window holds ~20 packets each way of the 20 Hz flow; 5 means it has started
 PAIR_MAX_S = 1.5        # provisional: an uplink packet unanswered this long is dropped from pairing
 
 LINE = re.compile(r'^(\d+\.\d+) IP (\d+\.\d+\.\d+\.\d+)\.(\d+) > (\d+\.\d+\.\d+\.\d+)\.(\d+): UDP, length (\d+)')
@@ -172,6 +175,7 @@ class Detector:
         self.pairs = deque()    # (t_down_ns, delay_ms) inside the window
         self.pair_max_ns = int(PAIR_MAX_S * 1e9)
         self.first_pkt_ns = None
+        self.flow_start_ns = None   # end of the first step whose window holds the robot flow
         self.base_samples = {'up': [], 'down': [], 'pair': []}
         self.baseline = None    # {'up': ms, 'down': ms, 'pair': ms}
         self.q_hist = deque()   # (t_ns, q_hat) inside the interval
@@ -270,9 +274,17 @@ class Detector:
                'pair_n': fp[0], 'pair_med_ms': fp[1], 'pair_min_ms': fp[2], 'pair_max_ms': fp[3],
                'q_up_ms': None, 'q_down_ms': None, 'q_pair_ms': None, 'q_hat_ms': None, 'q_min_ms': None,
                'baseline_done': 0, 'degraded': int(self.degraded), 't_det_meta_ns': None}
-        # baseline: mean of the window metrics over the first baseline_s of the flow
+        # baseline: mean of the window metrics over the first baseline_s of the robot flow.
+        # The flow starts at the first window holding at least FLOW_MIN_PKTS packets each way,
+        # not at the first packet seen: a WireGuard keepalive or handshake can come long
+        # before the bridge starts sending (B3 run 1 on 9/23 had its baseline window empty).
+        if self.flow_start_ns is None:
+            if fu[0] >= FLOW_MIN_PKTS and fd[0] >= FLOW_MIN_PKTS:
+                self.flow_start_ns = t_end
+            else:
+                return self._finish_row(row)
         if self.baseline is None:
-            if elapsed <= self.a.baseline_s:
+            if (t_end - self.flow_start_ns) / 1e9 <= self.a.baseline_s:
                 if mu is not None:
                     self.base_samples['up'].append(mu)
                 if md is not None:
@@ -329,6 +341,7 @@ class Detector:
                 'theta_low_ms': self.theta_low, 'metric': self.a.metric, 'dir': self.a.dir,
                 'burst_eps_ms': self.a.burst_eps_ms, 'ap_net': self.a.ap_net,
                 'baseline_ms': self.baseline, 'first_pkt_ns': self.first_pkt_ns,
+                'flow_start_ns': self.flow_start_ns,
                 'packets': dict(self.counts), 'steps': self.step,
                 'enters': self.enters, 'leaves': self.leaves,
                 't_det_meta_ns': self.t_det_meta_ns}
@@ -553,10 +566,16 @@ def replay_windows(path, a):
     base, samples = {}, {d: [] for d in dirs}
     interval_ns = int(a.interval_s * 1e9)
     hist, degraded, first, enters, leaves = deque(), False, None, 0, 0
+    flow_t = None
     for r in rows:
         el = float(r['elapsed_s'])
         vals = {d: (float(r[col.format(d)]) if r[col.format(d)] else None) for d in dirs}
-        if el <= a.baseline_s:
+        if flow_t is None:
+            if int(r['n_up'] or 0) >= FLOW_MIN_PKTS and int(r['n_down'] or 0) >= FLOW_MIN_PKTS:
+                flow_t = el
+            else:
+                continue
+        if el - flow_t <= a.baseline_s:
             for d in dirs:
                 if vals[d] is not None:
                     samples[d].append(vals[d])
