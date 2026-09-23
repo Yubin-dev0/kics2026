@@ -1,0 +1,24 @@
+run 1: trimmed at 83.9 s
+run 2: trimmed at 64.4 s
+run 3: trimmed at 56.4 s
+run 4: trimmed at 83.5 s
+run 5: trimmed at 75.4 s
+run 7: trimmed at 71.4 s
+run 8: trimmed at 62.9 s
+med  10  false -  hit 3/3  A_ms [16838, 3617, 3820]  medA 3820  rule1 N
+med  15  false -  hit 3/3  A_ms [16838, 5717, 3820]  medA 5717  rule1 N
+med  20  false -  hit 3/3  A_ms [16838, 5717, 3820]  medA 5717  rule1 Y
+med  30  false -  hit 3/3  A_ms [16838, 5717, 5220]  medA 5717  rule1 Y
+p90  10  false -  hit 3/3  A_ms [1138, 917, 1320]  medA 1138  rule1 N
+p90  15  false -  hit 3/3  A_ms [1138, 917, 1320]  medA 1138  rule1 N
+p90  20  false -  hit 3/3  A_ms [1138, 2217, 1720]  medA 1720  rule1 Y
+p90  30  false -  hit 3/3  A_ms [3338, 3017, 4120]  medA 3338  rule1 Y
+mad  10  false -  hit 3/3  A_ms [1038, 917, 1120]  medA 1038  rule1 N
+mad  15  false -  hit 3/3  A_ms [1238, 1317, 1120]  medA 1238  rule1 N
+mad  20  false -  hit 3/3  A_ms [3438, 3117, 1320]  medA 3117  rule1 Y
+mad  30  false -  hit 3/3  A_ms [3638, 3417, 4820]  medA 3638  rule1 Y
+pair 10  false [1, 2]  hit 3/3  A_ms [3338, 3417, 2920]  medA 3338  rule1 N
+pair 15  false [1, 2]  hit 3/3  A_ms [3338, 3417, 2920]  medA 3338  rule1 N
+pair 20  false [1, 2]  hit 3/3  A_ms [3338, 3417, 3020]  medA 3338  rule1 N
+pair 30  false [1, 2]  hit 3/3  A_ms [3438, 3417, 3020]  medA 3417  rule1 N
+PICK: p90 20/10.0  via rule 2 (3/3)
