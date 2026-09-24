@@ -26,8 +26,9 @@ two checks quoted in `data/c3/NOTES.md`; `analysis/a0_select.py` is the A0 selec
   10, 30, 60, 100 and 200 ms. It is the same axis in both panels, so they share it.
 - KICS is a two-column format and one column is 8.37 cm wide. Size the figure to that
   width and keep every label readable at that size; 8 pt is the floor.
-- Greyscale-safe: the proceedings may be printed in black and white, so separate the four
-  policies by marker and line style, not by colour alone.
+- Colour, but never colour alone: the proceedings may be printed in black and white, so
+  the four policies (and A against D) also differ by marker and line style. The colours
+  are the Okabe-Ito set, which colour-blind readers can tell apart.
 - Figure text is English, matching the paper.
 
 ## Figure 2(a), top panel: detection delay (RQ1)

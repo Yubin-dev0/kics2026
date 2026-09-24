@@ -24,8 +24,10 @@ OUT = os.path.join(HERE, "out")
 EXCL = os.path.join(HERE, "excluded_runs.csv")
 RTTS = [10, 30, 60, 100, 200]
 POLICY = {1: "always local", 2: "always edge", 3: "RTT window", 4: "metadata flag"}
-# greyscale-safe: marker + line style carry identity, not colour
-STYLE = {1: ("o", "-"), 2: ("s", "--"), 3: ("^", "-."), 4: ("D", ":")}
+# colour + marker + line style: the Okabe-Ito palette is colour-blind safe, and the marker
+# and line style keep the four policies apart in a greyscale print (FIGURES.md)
+STYLE = {1: ("o", "-", "#000000"), 2: ("s", "--", "#E69F00"), 3: ("^", "-.", "#0072B2"), 4: ("D", ":", "#D55E00")}
+COL_A, COL_D = "#D55E00", "#0072B2"
 
 
 def load(path):
@@ -80,12 +82,13 @@ def fig2(d, path):
     l1 = d[d.load == "L1"]
 
     # (a) A and D, every policy's L1 runs
-    for col, lab, mk, ls in (("a_ms", "A: metadata flag", "o", "-"), ("d_ms", "D: RTT window", "x", "--")):
+    for col, lab, mk, ls, c in (("a_ms", "A: metadata flag", "o", "-", COL_A),
+                                ("d_ms", "D: RTT window", "x", "--", COL_D)):
         med = [l1[l1.rtt_ms == r][col].median() for r in RTTS]
         for r in RTTS:
             ax1.plot([r] * len(l1[l1.rtt_ms == r]), l1[l1.rtt_ms == r][col], mk, ms=3, mfc="none",
-                     color="0.55", mew=0.6, zorder=2)
-        ax1.plot(RTTS, med, ls, marker=mk, ms=4, color="k", label=lab, zorder=3)
+                     color=c, alpha=0.4, mew=0.6, zorder=2)
+        ax1.plot(RTTS, med, ls, marker=mk, ms=4, color=c, label=lab, zorder=3)
     ax1.set_ylabel("delay after t0 (ms)")
     ax1.set_yscale("log")
     ax1.set_yticks([500, 1000, 2000, 4000])
@@ -99,8 +102,8 @@ def fig2(d, path):
     for p in (1, 2, 3, 4):
         g = l1[l1.policy == p]
         med = [g[g.rtt_ms == r].hold_rate.median() * 100 for r in RTTS]
-        mk, ls = STYLE[p]
-        ax2.plot(RTTS, med, ls, marker=mk, ms=4, color="k", mfc="white" if p in (2, 4) else "k",
+        mk, ls, c = STYLE[p]
+        ax2.plot(RTTS, med, ls, marker=mk, ms=4, color=c, mfc="white" if p in (2, 4) else c,
                  label=POLICY[p])
     ax2.set_ylabel("hold rate (%)")
     ax2.set_xlabel("base RTT (ms, netem)")
