@@ -2,3 +2,6 @@ run_id,stage,replaced_by,reason
 29,c3,67,bridge aborted at 2.8 s (cmd_vel publisher context invalid)
 42,c3,68,detector entered about 5 s before t0 (A -5220 ms)
 56,c3,69,detector entered about 5 s before t0 (A -5360 ms)
+5,c5,13,detector timed out before the bridge started; no L1 (edge rtt med 67 ms)
+13,c5,14,detector timed out before the bridge started; no L1 (edge rtt med 67 ms)
+14,c5,15,detector entered about 4 s before t0 (A -4100 ms)

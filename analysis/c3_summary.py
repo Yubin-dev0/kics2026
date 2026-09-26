@@ -33,6 +33,7 @@ COL_A, COL_D = "#D55E00", "#0072B2"
 def load(path):
     df = pd.read_csv(path)
     ex = pd.read_csv(EXCL)
+    ex = ex[ex.stage == "c3"]  # the list carries other stages too (C5)
     used = df[(df.status == "valid") & ~df.run_id.isin(ex.run_id)].copy()
     used["cond"] = used.rtt_ms.astype(int).astype(str) + "/" + used.load
     return used
@@ -132,7 +133,8 @@ def main():
     a = ap.parse_args()
     os.makedirs(OUT, exist_ok=True)
     d = load(a.sweep)
-    print(f"used runs: {len(d)} (excluded: {pd.read_csv(EXCL).run_id.tolist()})")
+    ex = pd.read_csv(EXCL)
+    print(f"used runs: {len(d)} (excluded: {ex[ex.stage == 'c3'].run_id.tolist()})")
     t1 = table1(d)
     h = holds(d)
     t1.to_csv(os.path.join(OUT, "table1.csv"), index=False)

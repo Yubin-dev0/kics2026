@@ -26,7 +26,7 @@ C1_DELTA_MS = -54174235.547  # C1 clock run 0: N3 wall - N1 wall
 
 def qhat_check():
     sw = pd.read_csv(os.path.join(DATA, "sweep.csv")).set_index("run_id")
-    ex = pd.read_csv(EXCL).run_id
+    ex = pd.read_csv(EXCL).query("stage == 'c3'").run_id
     runs = sw[(sw.policy == 4) & (sw.load == "L1") & (sw.status == "valid") & ~sw.index.isin(ex)].index
     rows = []
     for r in runs:
