@@ -17,6 +17,7 @@ and the spare Pi 4 if it ever has to replace it.
 | `n3/ap_up.sh` | 5 GHz AP on wlan0, NetworkManager shared mode (DHCP and NAT) |
 | `n3/eth_up.sh` | eth0 fixed address towards N4, no gateway |
 | `n3/netem.sh` | base RTT: half on wlan0 egress, half on eth0 egress; `off`, `show` |
+| `n3/prio.sh` | C5 variant: same netem on both sides, but the flag (UDP sport 47100) gets its own band ahead of the load on wlan0; optional DSCP CS6 on the flag; `show` prints per-band counters, `off` removes all of it |
 | `n3/state.sh` | snapshot of board, OS, Wi-Fi, profiles, qdiscs, packages |
 | `ping_run.py` | A4, A6 and A8 runs from N1: raw ping log, figures, verdict, meta file; A8 triggers the N5 load mid-run |
 | `clock_offset.py` | A9: N1 to N3 clock offset delta, echo side piped to N3, 100 exchanges from N1, one file per sweep run |

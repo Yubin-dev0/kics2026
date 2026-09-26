@@ -49,7 +49,7 @@ FIELDS = ['run_id', 'stage', 'date', 'node', 'course', 'clearance_m',
           'min_range_m', 'status', 'note']
 
 BENCH_STAGES = ('A2', 'A3')
-BRIDGE_STAGES = ('B1', 'A10', 'B3', 'C1', 'C3')
+BRIDGE_STAGES = ('B1', 'A10', 'B3', 'C1', 'C3', 'C5')
 # world file of A1 runs 10-12: 3x3 course, obstacles 0.42 m from the path
 KNOWN_WORLDS = {'6b66d107282a': ('3x3', '0.42')}
 STATUSES = ('valid', 'check', 'discarded', 'partial', 'overwritten')
