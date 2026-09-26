@@ -1,0 +1,25 @@
+## wlan0 bands (10: = flag band)
+qdisc prio 1: root refcnt 2 bands 3 priomap 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ Sent 437266665 bytes 305395 pkt (dropped 35107, overlimits 0 requeues 0) 
+ backlog 200b 2p requeues 0
+qdisc netem 30: parent 1:3 limit 830 delay 30ms seed 1281545271490837650
+ Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+qdisc netem 10: parent 1:1 limit 830 delay 30ms seed 2776219496350470008
+ Sent 213 bytes 3 pkt (dropped 0, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+qdisc netem 20: parent 1:2 limit 830 delay 30ms seed 9653818679709721357
+ Sent 437265893 bytes 305383 pkt (dropped 35107, overlimits 0 requeues 0) 
+ backlog 200b 2p requeues 0
+## wlan0 filter
+filter protocol ip pref 1 u32 chain 0 
+filter protocol ip pref 1 u32 chain 0 fh 800: ht divisor 1 
+filter protocol ip pref 1 u32 chain 0 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:1 not_in_hw 
+  match 00110000/00ff0000 at 8
+  match b7fc0000/ffff0000 at 20
+## eth0
+qdisc netem 8005: root refcnt 2 limit 830 delay 30ms seed 3807264790507160245
+ Sent 145586 bytes 955 pkt (dropped 0, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+## dscp rule
+none

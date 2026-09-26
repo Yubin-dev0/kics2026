@@ -1,0 +1,76 @@
+{
+  "run_id": 1,
+  "stage": "C5",
+  "node": "N3",
+  "harness": "detector",
+  "started": "2026-09-22T18:32:49+09:00",
+  "finished": "2026-09-22T18:34:19+09:00",
+  "iface": "wlan0",
+  "filter": "udp port 51820",
+  "tcpdump": null,
+  "tcpdump_stderr": "tcpdump: listening on wlan0, link-type EN10MB (Ethernet), snapshot length 96 bytes\n1826 packets captured\n1826 packets received by filter\n0 packets dropped by kernel",
+  "pcap": "/home/yubin/n3runs/c5/n3_run_1.pcap",
+  "git": "5f8a38c",
+  "note": "",
+  "detector": {
+    "window_s": 1.0,
+    "step_s": 0.1,
+    "interval_s": 0.1,
+    "baseline_s": 5.0,
+    "theta_high_ms": 20.0,
+    "theta_low_ms": 10.0,
+    "metric": "p90",
+    "dir": "both",
+    "burst_eps_ms": 5.0,
+    "ap_net": "192.168.60.",
+    "baseline_ms": {
+      "up": 50.98480941176471,
+      "down": 50.96293898039216,
+      "pair": 12.82799937254902
+    },
+    "first_pkt_ns": 1790069574217408768,
+    "flow_start_ns": 1790069583017408768,
+    "packets": {
+      "up": 949,
+      "down": 877,
+      "bytes_up": 105396,
+      "bytes_down": 84188,
+      "other": 0,
+      "control": 4,
+      "paired": 876,
+      "unpaired_up": 43,
+      "unpaired_down": 0
+    },
+    "steps": 850,
+    "enters": 2,
+    "leaves": 2,
+    "t_det_meta_ns": 1790069600562956480
+  },
+  "t_start_wall_ns": 1790069569336150860,
+  "t_run_start_ns": 1790069582721416361,
+  "run_peer": "192.168.60.90:58180",
+  "keepalives": 48,
+  "load": {
+    "kind": "L1",
+    "n5": "192.168.60.55",
+    "server": "192.168.60.1",
+    "proto": "udp",
+    "rate": "84M",
+    "seconds": 45.0,
+    "t0_s_planned": 17.0,
+    "n5_messages": [
+      {
+        "t_ns": 1790069599735146967,
+        "msg": "A,L1,1,1790159714263883494,1831*3B"
+      },
+      {
+        "t_ns": 1790069645235849019,
+        "msg": "D,L1,1,1790159759754729893,0,74.6*3E"
+      }
+    ]
+  },
+  "t0_ns": 1790069599723099979,
+  "t_det_meta_ns": 1790069600562956480,
+  "a_ms": 839.857,
+  "flags_sent": 4
+}
