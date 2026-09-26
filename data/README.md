@@ -12,7 +12,10 @@
 - `b1/run_N.csv`, `b1/run_N_meta.json` -- bridge driving runs (see Bridge stages)
 - `a10/` -- bridge driving runs over loopback with the edge controller (same files as
   `b1/`, plus `edge_run_N.csv` from the N4 server, columns in `edge/README.md`)
-- `b3/`, `c1/`, `c3/` -- later bridge stages, same files as `b1/`
+- `b3/`, `c1/`, `c3/`, `c5/` -- later bridge stages, same files as `b1/`; `c5/` adds
+  `flagcap_run_N.txt` (tcpdump `-tt` of the flag leaving N3 wlan0) and `qdisc_run_N.txt`
+  (`net/n3/prio.sh show` after the run: per-band packet counts); `sweep_c5.csv` is the
+  C5 index, kept apart from `sweep.csv` (C3)
 - `a10/`, `a5/` also hold edge probe runs (`bridge.test_edge --probe --run N`): run_N.csv
   with one row per datagram (seq, t_send_ns, t_recv_ns, rtt_us, empty when unanswered)
   and run_N_meta.json with the path, figures and verdict (`harness` = probe)

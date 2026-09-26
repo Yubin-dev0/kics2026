@@ -181,6 +181,13 @@ N1 wall + delta = N3 wall. The file also keeps the median over the quarter of ex
 with the shortest round trips, which bounds the offset best; if the two medians differ by
 more than the sd, the Wi-Fi was asymmetric during the measurement and the run is `check`.
 
+C5 (9/26, `data/c5/NOTES.md`): the flag in its own queue on wlan0 (`n3/prio.sh`).
+
+| ID | criterion | basis | status |
+|---|---|---|---|
+| C5-1 | the band-0 packet count after a run equals the flags the detector sent | the u32 filter (UDP sport 47100) must catch every flag and nothing else | pass 9/26, 12 of 12 used runs |
+| C5-2 | B median per base RTT at most one-way delay + 40 ms | 0926 guide 2.3, set before the data; the prediction was that B is mostly the netem queue | V1 (prio band only) fails at 10 / 60 / 200 ms: 92 / 267 / 226 ms. V2 (band + DSCP CS6) passes at 60 ms: 22 ms. The first flag of every run left the qdisc after exactly the netem delay, so the rest of B is below the qdisc (driver, air, N1) |
+
 ## Known constraints
 
 - N3 is the Pi 5 (received 2026-09-22); a rented Pi 4 is N5 and the other a spare. A
@@ -193,7 +200,12 @@ more than the sd, the Wi-Fi was asymmetric during the measurement and the run is
   catch one. Burst rule (decided 9/23 10:11, before the day's runs): a run whose pre-load
   or no-load section already shows a burst is marked `check` and repeated once; the
   original stays in the ledger. Applied to A8 run 2, A9 run 1, C3 runs 42 and 56
-  (detector entered about 5 s before t0; re-run as 68 and 69).
+  (detector entered about 5 s before t0; re-run as 68 and 69), C5 run 14 (4 s before
+  t0; re-run as 15).
+- Linux tc bounds only the qdisc. The Wi-Fi driver/firmware queue below it (about 250
+  ms under L1, `load/README.md`) holds the flag as well: a prio band on wlan0 did not
+  shorten B (C5 V1), a DSCP CS6 mark on the flag did (C5 V2, B 22 ms at 60 ms), because
+  the driver maps it to the 802.11e voice access category.
 - `n1_wifi` in the 9/22 meta files is garbled: netsh printed UTF-8 and it was read as
   CP949. The ASCII fields (SSID, BSSID, band, channel, rates) are readable; `ping_run.py`
   now tries UTF-8 first.
