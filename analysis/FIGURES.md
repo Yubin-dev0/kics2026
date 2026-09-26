@@ -66,16 +66,20 @@ two checks quoted in `data/c3/NOTES.md`; `analysis/a0_select.py` is the A0 selec
 
 Three rows, the L1 runs at base RTT 10, 60 and 200 ms; median over the repetitions
 (`c3_summary.py` prints all five RTTs and the L2 row; pick the three for the paper).
-Columns A, B, U, C, D, G from `a_ms`, `b_ms`, `u_ms`, `c_ms`, `d_ms`, `g_ms`, then `n_sw`
-for policies 3 and 4 side by side, then N_false.
+Seven columns: base RTT, then A, B, C, D, G from `a_ms`, `b_ms`, `c_ms`, `d_ms`, `g_ms`,
+then `n_sw` for policies 3 and 4 in one column ("3 / 4"). Eight columns do not fit in
+8.37 cm (9/24, 현빈), so U is a footnote and N_false is a sentence in section III; the
+script still prints both so the numbers stay checkable.
 
 - `b_ms` and `g_ms` are only filled for policy 4 runs: B is the flag's trip from N3 to N1,
   and only policy 4 sends flags. Take A, D, U, C from the same policy 4 runs so the row is
   one condition, not a mixture.
 - N_false is not a column. It is `n_sw` of the `load = L2` rows, per policy: the switches a
-  two-second load caused, which is the false-switch count of plan 5.3.
-- U carries a footnote: it is the A3 constant (USB path p99, 3.5 ms idle), not measured per
-  run.
+  two-second load caused, which is the false-switch count of plan 5.3. It goes in the
+  text next to the table (2 per run for both policies).
+- U is not a column either. The table's footnote gives it: the A3 constant (USB path p99,
+  3.5 ms idle), not measured per run. It stays a separate term of G (plan D14, four
+  terms), not folded into C.
 - G = D - (A + B + U + C). Do not recompute it from the parts, print the column; the
   validator already checks the two agree.
 
