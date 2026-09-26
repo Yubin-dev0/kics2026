@@ -48,8 +48,8 @@ across the sweep.
 - A vs D by base RTT (median ms, A < D count of 12): 10: 790/822, 8; 30: 1020/859, 4;
   60: 1226/931, 4; 100: 1440/1112, 2; 200: 1350/1310, 5. L2/60 (n = 6): 1077/944, 2.
 - Policy 4 G at L1: positive in 3 of 15 runs (16, 19, 55). B 69-367 ms, growing with RTT.
-- Hold rate: 14-28 % per run at L1 for every policy, no policy stands apart;
-  1.2-3.1 % at L2.
+- Hold rate: 7-28 % per run at L1 for every policy, no policy stands apart
+  (run 19 7.2 %, run 69 9.9 %, the other 58 runs 13.9-28.1 %); 1.2-3.1 % at L2.
 - C: 31-36 us on every switch (A2 said 34).
 - L2: policies 3 and 4 both switch exactly twice (enter + leave) in all 6 runs.
 

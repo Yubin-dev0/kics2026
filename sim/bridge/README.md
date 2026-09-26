@@ -315,7 +315,7 @@ C3, the sweep (runs 1-69, 66 used): results, exclusions and the two checks behin
 interpretation are in `data/c3/NOTES.md`; table 1 and figure 2 come from
 `analysis/c3_summary.py`. In short: A is later than D in most runs (median A above median
 D at every base RTT but 10 ms), G > 0 in 3 of 15 policy-4 L1 runs, B 69-367 ms growing
-with RTT, C 31-36 us on every switch, hold rate 14-28% at L1 with no policy apart,
+with RTT, C 31-36 us on every switch, hold rate 7-28% at L1 with no policy apart,
 collisions 0.
 
 ## Known constraints

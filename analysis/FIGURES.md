@@ -53,8 +53,9 @@ two checks quoted in `data/c3/NOTES.md`; `analysis/a0_select.py` is the A0 selec
   run, policy 2 at 200 ms included (`n_col` = 0 in all 69 rows, min range 0.24-0.37 m),
   so `n_col` has nothing to plot. `edge_stop_steps` was the planned fallback and is also
   0 in every row. Option (ga) chosen by Yubin: hold rate.
-- What it shows (9/23): 14-28 % per run at L1 for every policy, no policy apart; the
-  four curves lie on top of each other. That is the finding, not a failure of the
+- What it shows (9/23): 7-28 % per run at L1 for every policy, no policy apart; the
+  four curves lie on top of each other. The two low runs are 19 (policy 4, 30 ms, 7.2 %)
+  and 69 (policy 1, 200 ms, 9.9 %); the other 58 L1 runs lie between 13.9 and 28.1 %. That is the finding, not a failure of the
   plot: the policies differ in when they switch, not in how often the edge is late.
 
 ## Table 1: the timing chain
