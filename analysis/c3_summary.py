@@ -77,8 +77,10 @@ def fig2(d, path):
 
     plt.rcParams.update({"font.size": 8, "axes.linewidth": 0.6, "lines.linewidth": 1.0,
                          "xtick.major.width": 0.6, "ytick.major.width": 0.6})
-    w = 8.37 / 2.54
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(w, 3.4), sharex=True, dpi=200)
+    # one column wide (8.37 cm) and 5.59 cm tall: at the earlier 8.64 cm the paper ran to
+    # three pages with figure 1 in (9/24, 현빈 -> FIGURES.md)
+    w, h = 8.37 / 2.54, 5.59 / 2.54
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(w, h), sharex=True, dpi=200)
     l1 = d[d.load == "L1"]
 
     # (a) A and D, every policy's L1 runs
@@ -89,14 +91,16 @@ def fig2(d, path):
             ax1.plot([r] * len(l1[l1.rtt_ms == r]), l1[l1.rtt_ms == r][col], mk, ms=3, mfc="none",
                      color=c, alpha=0.4, mew=0.6, zorder=2)
         ax1.plot(RTTS, med, ls, marker=mk, ms=4, color=c, label=lab, zorder=3)
-    ax1.set_ylabel("delay after t0 (ms)")
+    ax1.set_ylabel("A, D (ms)")  # both counted from t0; the long form no longer fits
     ax1.set_yscale("log")
     ax1.set_yticks([500, 1000, 2000, 4000])
     ax1.set_yticklabels(["500", "1000", "2000", "4000"])
     ax1.set_ylim(400, 8000)
-    ax1.legend(frameon=False, loc="upper left", fontsize=7)
+    # points cover the panel at this height, so the legend goes in one row above it
+    ax1.legend(frameon=False, loc="lower center", bbox_to_anchor=(0.5, 0.98), ncol=2,
+               fontsize=7, handlelength=1.6, columnspacing=1.2, borderaxespad=0)
     ax1.grid(True, axis="y", color="0.85", linewidth=0.5)
-    ax1.text(0.98, 0.92, "(a)", transform=ax1.transAxes, ha="right")
+    ax1.text(0.02, 0.85, "(a)", transform=ax1.transAxes, ha="left")
 
     # (b) hold rate per policy
     for p in (1, 2, 3, 4):
@@ -110,10 +114,12 @@ def fig2(d, path):
     ax2.set_xscale("log")
     ax2.set_xticks(RTTS)
     ax2.set_xticklabels([str(r) for r in RTTS])
-    ax2.set_ylim(0, 32)
-    ax2.legend(frameon=False, ncol=2, loc="lower center", fontsize=7)
+    ax2.set_ylim(0, 45)
+    # the four curves fill 14-28 %, so the legend sits above them, not under them
+    ax2.legend(frameon=False, ncol=2, loc="upper center", fontsize=7, columnspacing=0.8,
+               handlelength=1.6, borderaxespad=0.2)
     ax2.grid(True, axis="y", color="0.85", linewidth=0.5)
-    ax2.text(0.98, 0.92, "(b)", transform=ax2.transAxes, ha="right")
+    ax2.text(0.98, 0.85, "(b)", transform=ax2.transAxes, ha="right")
 
     fig.tight_layout(h_pad=0.4)
     fig.savefig(path + ".pdf")

@@ -24,8 +24,11 @@ two checks quoted in `data/c3/NOTES.md`; `analysis/a0_select.py` is the A0 selec
   spread; with three points, plot the points themselves rather than a box.
 - The x axis of both panels is `rtt_ms`, the base RTT set with netem, with the five steps
   10, 30, 60, 100 and 200 ms. It is the same axis in both panels, so they share it.
-- KICS is a two-column format and one column is 8.37 cm wide. Size the figure to that
-  width and keep every label readable at that size; 8 pt is the floor.
+- KICS is a two-column format and one column is 8.37 cm wide. The figure is 8.37 cm
+  wide and 5.59 cm tall (9/24, 현빈: at the earlier 8.64 cm the paper with figure 1 ran
+  to three pages). Keep every label readable at that size; 8 pt is the floor. At this
+  height the (a) legend sits in one row above the panel and the (b) legend above the
+  curves, so neither covers a point.
 - Colour, but never colour alone: the proceedings may be printed in black and white, so
   the four policies (and A against D) also differ by marker and line style. The colours
   are the Okabe-Ito set, which colour-blind readers can tell apart.
@@ -33,7 +36,8 @@ two checks quoted in `data/c3/NOTES.md`; `analysis/a0_select.py` is the A0 selec
 
 ## Figure 2(a), top panel: detection delay (RQ1)
 
-- y: milliseconds after t0, the moment N3 started the load.
+- y: milliseconds after t0, the moment N3 started the load. The axis is labelled
+  "A, D (ms)"; the caption says "after t0" (the long label did not fit at 5.59 cm).
 - Two series over all `load = L1` rows: `a_ms` (metadata, the proposal) and `d_ms` (RTT
   window, the baseline). Both are recorded in every run whatever its policy, so all four
   policies' runs contribute points to both series.
